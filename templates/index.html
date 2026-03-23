@@ -821,7 +821,7 @@
                     <label>业务系统</label>
                     <select id="systemSelect"><option value="">全部</option></select>
                 </div>
-                <div class="filter-group">
+                <div class="filter-group" id="ruleIdFilterGroup" hidden>
                     <label>规则ID</label>
                     <select id="ruleIdSelect"><option value="">全部</option></select>
                 </div>
@@ -4055,11 +4055,20 @@
 
     // 获取筛选条件
     function getFilterParams() {
+        const ruleIdFilterGroup = document.getElementById('ruleIdFilterGroup');
+        const ruleIdSelect = document.getElementById('ruleIdSelect');
+        // 规则ID筛选项仅做前端隐藏，隐藏状态下不参与筛选，避免历史值影响统计口径
+        const shouldUseRuleId = !!ruleIdFilterGroup && !ruleIdFilterGroup.hidden;
+        const ruleId = shouldUseRuleId && ruleIdSelect ? ruleIdSelect.value : '';
+        if (!shouldUseRuleId && ruleIdSelect) {
+            ruleIdSelect.value = '';
+        }
+
         return {
             domain: document.getElementById('domainSelect').value,
             subDomain: document.getElementById('subDomainSelect').value,
             system: document.getElementById('systemSelect').value,
-            ruleId: document.getElementById('ruleIdSelect').value,
+            ruleId,
             startDate: document.getElementById('startDate').value,
             endDate: document.getElementById('endDate').value
         };

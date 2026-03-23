@@ -1580,6 +1580,7 @@
                         <input type="date" id="manualSyncEndDate">
                     </div>
                     <button class="btn btn-primary" onclick="startManualSync()">手动同步数据</button>
+                    <button class="btn btn-secondary" onclick="clearIncidentData()">清空事件数据</button>
                     <button class="btn btn-secondary" onclick="loadSyncHistory()">刷新同步历史</button>
                 </div>
 
@@ -3367,6 +3368,51 @@
             updateSyncProgressUI({progress: 100, status: 'failed', message: error.message || '同步失败'}, false);
             scheduleSyncProgressAutoHide(4000);
             showToast(`同步失败: ${error.message}`, 'error');
+        }
+    }
+
+    async function clearIncidentData() {
+        const confirmed = window.confirm('将清空所有历史告警事件与规则聚合数据，且不可恢复，确认继续？');
+        if (!confirmed) return;
+
+        try {
+            stopSyncProgressPolling();
+            clearSyncProgressAutoHideTimer();
+            hideSyncProgressCard();
+
+            const response = await fetch('/api/incidents/clear', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || '清空失败');
+            }
+
+            currentIncidents = [];
+            allIncidents = [];
+            topAlertsData = [];
+            topAlertsCurrentPage = 1;
+
+            const pageInfo = document.getElementById('topAlertsPageInfo');
+            if (pageInfo) pageInfo.textContent = '第 1 页';
+
+            await loadSyncHistory();
+
+            if (document.getElementById('page-dashboard')?.classList.contains('active')) {
+                await applyFilter();
+            }
+            if (document.getElementById('page-event-list')?.classList.contains('active')) {
+                await loadEventListData();
+            }
+            if (document.getElementById('page-governance')?.classList.contains('active')) {
+                await loadAlertRules();
+            }
+
+            showToast(result.message || '清空成功');
+        } catch (error) {
+            console.error('清空事件数据失败:', error);
+            showToast(`清空失败: ${error.message}`, 'error');
         }
     }
 

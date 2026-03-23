@@ -686,14 +686,42 @@ def run_sync_job(trigger_type='manual', start_date=None, end_date=None, task=Non
                 progress = min(85, 60 + int((idx / max(1, len(remote_items))) * 25))
                 _update_sync_history(history.id, progress=progress, message=f'数据转换中 {idx}/{len(remote_items)}')
 
-        rule_records = _build_alert_rule_records(converted_incidents)
-        _update_sync_history(history.id, progress=88, message='开始覆盖写入本地数据')
+        # 去重：同一批次若存在重复incident_id，保留最后一条
+        dedup_map = {}
+        for incident in converted_incidents:
+            rid = str(getattr(incident, 'incident_id', '') or '').strip()
+            if not rid:
+                continue
+            dedup_map[rid] = incident
+        dedup_incidents = list(dedup_map.values())
 
-        # 原子覆盖：只要失败，整个覆盖回滚，不产生部分更新
-        Incident.query.delete()
-        AlertRule.query.delete()
-        if converted_incidents:
-            db.session.bulk_save_objects(converted_incidents)
+        _update_sync_history(history.id, progress=88, message='开始按时间窗口覆盖写入本地数据')
+
+        # 原子更新：
+        # 1) 删除时间窗口内历史事件
+        # 2) 删除与本次拉取incident_id重复的历史事件（兼容事件时间变更）
+        # 3) 写入本次窗口数据
+        # 4) 基于全量事件重建规则聚合表
+        window_deleted_count = (
+            Incident.query
+            .filter(Incident.created_at >= start_ts, Incident.created_at <= end_ts)
+            .delete(synchronize_session=False)
+        )
+
+        duplicate_deleted_count = 0
+        if dedup_incidents:
+            incoming_ids = [inc.incident_id for inc in dedup_incidents]
+            duplicate_deleted_count = (
+                Incident.query
+                .filter(Incident.incident_id.in_(incoming_ids))
+                .delete(synchronize_session=False)
+            )
+            db.session.bulk_save_objects(dedup_incidents)
+            db.session.flush()
+
+        all_incidents = Incident.query.all()
+        rule_records = _build_alert_rule_records(all_incidents)
+        AlertRule.query.delete(synchronize_session=False)
         if rule_records:
             db.session.bulk_save_objects(rule_records)
         db.session.commit()
@@ -703,9 +731,9 @@ def run_sync_job(trigger_type='manual', start_date=None, end_date=None, task=Non
             status='success',
             progress=100,
             total_items=len(remote_items),
-            success_items=len(converted_incidents),
+            success_items=len(dedup_incidents),
             failed_items=0,
-            message=f'同步完成，共导入{len(converted_incidents)}条',
+            message=f'同步完成，窗口覆盖更新{len(dedup_incidents)}条（删除窗口历史{window_deleted_count}条）',
             finished_at=datetime.now()
         )
 
@@ -717,7 +745,9 @@ def run_sync_job(trigger_type='manual', start_date=None, end_date=None, task=Non
         return {
             'history_id': history.id,
             'total_items': len(remote_items),
-            'created': len(converted_incidents),
+            'created': len(dedup_incidents),
+            'deleted_in_window': window_deleted_count,
+            'deleted_by_incident_id': duplicate_deleted_count,
             'start_date': win_start,
             'end_date': win_end
         }
@@ -1127,6 +1157,34 @@ def get_incidents():
         }), 200
         
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/incidents/clear', methods=['POST'])
+def clear_incidents():
+    """
+    清空历史告警事件数据（同时清空规则聚合表）
+    """
+    try:
+        running = SyncHistory.query.filter_by(status='running').first()
+        if running:
+            return jsonify({'error': '当前已有同步任务在执行，请稍后再试'}), 409
+
+        incident_count = Incident.query.count()
+        rule_count = AlertRule.query.count()
+
+        Incident.query.delete(synchronize_session=False)
+        AlertRule.query.delete(synchronize_session=False)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'deleted_incidents': incident_count,
+            'deleted_rules': rule_count,
+            'message': f'已清空事件数据{incident_count}条，规则数据{rule_count}条'
+        }), 200
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 

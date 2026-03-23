@@ -978,6 +978,46 @@ def _calculate_invalid_count_from_incidents(incidents):
 
     return invalid_count
 
+
+def _calculate_rule_jitter_rate(incidents, window_seconds=1800):
+    """
+    统一抖动率口径：
+    - 规则维度滑动时间窗口统计
+    - 分子：同一规则在窗口内重复发生的事件数（按事件计数）
+    - 分母：有规则ID的事件总数
+    """
+    buckets = {}
+    total_rule_events = 0
+
+    for inc in incidents:
+        rid = str(getattr(inc, 'rule_id', '') or '').strip()
+        if not rid:
+            continue
+        total_rule_events += 1
+
+        raw_ts = getattr(inc, 'created_at', None)
+        try:
+            ts = int(raw_ts)
+        except (TypeError, ValueError):
+            continue
+        if ts <= 0:
+            continue
+        buckets.setdefault(rid, []).append(ts)
+
+    if total_rule_events == 0:
+        return 0.0
+
+    duplicate_events = 0
+    for timestamps in buckets.values():
+        if len(timestamps) < 2:
+            continue
+        timestamps.sort()
+        for i in range(1, len(timestamps)):
+            if timestamps[i] - timestamps[i - 1] <= window_seconds:
+                duplicate_events += 1
+
+    return round((duplicate_events / total_rule_events) * 100, 1)
+
 @app.route('/api/incidents', methods=['POST'])
 def create_incidents():
     try:
@@ -1165,25 +1205,9 @@ def get_new_metrics():
         invalid_count = _calculate_invalid_count_from_incidents(incidents)
         escalation_count = sum(1 for inc in incidents if inc.escalations and inc.escalations > 0)
 
-        rule_jitter = {}
-        for inc in incidents:
-            if not inc.rule_id or not inc.created_at:
-                continue
-            rule_jitter.setdefault(inc.rule_id, []).append(inc.created_at)
-
-        jitter_count = 0
-        for timestamps in rule_jitter.values():
-            if len(timestamps) < 2:
-                continue
-            timestamps.sort()
-            for i in range(1, len(timestamps)):
-                if timestamps[i] - timestamps[i - 1] < 300:
-                    jitter_count += 1
-                    break
-
         invalid_rate = round((invalid_count / total) * 100, 1) if total else 0
         escalation_rate = round((escalation_count / total) * 100, 1) if total else 0
-        jitter_rate = round((jitter_count / len(rule_jitter)) * 100, 1) if rule_jitter else 0
+        jitter_rate = _calculate_rule_jitter_rate(incidents, window_seconds=1800)
 
         return jsonify({
             'success': True,
@@ -2555,37 +2579,18 @@ def calculate_metric_value(metric, start_time, end_time, domain=None, sub_domain
         escalation_count = sum(1 for inc in incidents if inc.escalations and inc.escalations > 0)
         return round(escalation_count / len(incidents) * 100, 1) if incidents else 0
     elif metric == 'mtta_rate':
+        # 口径与规则评分保持一致：分母使用筛选条件下总事件数
         mtta_threshold = 300
-        acked_incidents = [inc for inc in incidents if inc.seconds_to_ack and inc.seconds_to_ack > 0]
-        if not acked_incidents:
-            return 0
-        mtta_ok_count = sum(1 for inc in acked_incidents if inc.seconds_to_ack <= mtta_threshold)
-        return round(mtta_ok_count / len(acked_incidents) * 100, 1)
+        mtta_ok_count = sum(1 for inc in incidents if inc.seconds_to_ack and inc.seconds_to_ack > 0 and inc.seconds_to_ack <= mtta_threshold)
+        return round(mtta_ok_count / len(incidents) * 100, 1) if incidents else 0
     elif metric == 'mttr_rate':
+        # 口径与规则评分保持一致：分母使用筛选条件下总事件数
         mttr_threshold = 1800
-        closed_incidents = [inc for inc in incidents if inc.seconds_to_close and inc.seconds_to_close > 0]
-        if not closed_incidents:
-            return 0
-        mttr_ok_count = sum(1 for inc in closed_incidents if inc.seconds_to_close <= mttr_threshold)
-        return round(mttr_ok_count / len(closed_incidents) * 100, 1)
+        mttr_ok_count = sum(1 for inc in incidents if inc.seconds_to_close and inc.seconds_to_close > 0 and inc.seconds_to_close <= mttr_threshold)
+        return round(mttr_ok_count / len(incidents) * 100, 1) if incidents else 0
     elif metric == 'jitter_rate':
-        rule_jitter = {}
-        for inc in incidents:
-            if inc.rule_id:
-                if inc.rule_id not in rule_jitter:
-                    rule_jitter[inc.rule_id] = []
-                rule_jitter[inc.rule_id].append(inc.created_at)
-        
-        jitter_count = 0
-        for rule_id, timestamps in rule_jitter.items():
-            if len(timestamps) >= 2:
-                timestamps.sort()
-                for i in range(1, len(timestamps)):
-                    if timestamps[i] - timestamps[i-1] < 300:
-                        jitter_count += 1
-                        break
-        
-        return round(jitter_count / len(rule_jitter) * 100, 1) if rule_jitter else 0
+        # 规则维度：30分钟窗口内重复事件 / 规则事件总数
+        return _calculate_rule_jitter_rate(incidents, window_seconds=1800)
     
     return 0
 
@@ -2838,8 +2843,6 @@ def update_score_threshold(threshold_id):
             threshold.threshold_type = data['threshold_type']
         if 'threshold_value' in data:
             threshold.threshold_value = data['threshold_value']
-        if 'score_direction' in data:
-            threshold.score_direction = data['score_direction']
         if 'is_active' in data:
             threshold.is_active = data['is_active']
         
@@ -2889,10 +2892,6 @@ def update_score_thresholds_batch():
             if threshold_type not in ['lt', 'le', 'gt', 'ge', 'eq', 'ne', 'bool']:
                 return jsonify({'error': f'{dimension_key} 的threshold_type无效'}), 400
 
-            score_direction = (item.get('score_direction') or threshold.score_direction or '').strip().lower()
-            if score_direction not in ['positive', 'negative']:
-                return jsonify({'error': f'{dimension_key} 的score_direction无效'}), 400
-
             threshold_value = item.get('threshold_value', threshold.threshold_value)
             if threshold_value is None:
                 threshold_value = ''
@@ -2902,8 +2901,7 @@ def update_score_thresholds_batch():
             update_items.append((threshold, {
                 'weight': weight,
                 'threshold_type': threshold_type,
-                'threshold_value': threshold_value,
-                'score_direction': score_direction
+                'threshold_value': threshold_value
             }))
 
         if total_weight != 100:
@@ -2915,7 +2913,6 @@ def update_score_thresholds_batch():
             threshold.weight = new_vals['weight']
             threshold.threshold_type = new_vals['threshold_type']
             threshold.threshold_value = new_vals['threshold_value']
-            threshold.score_direction = new_vals['score_direction']
             db.session.add(threshold)
             db.session.flush()
             history = ConfigHistory(

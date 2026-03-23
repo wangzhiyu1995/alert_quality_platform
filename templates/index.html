@@ -1918,7 +1918,6 @@
                                             <th>权重</th>
                                             <th>阈值类型</th>
                                             <th>阈值</th>
-                                            <th>得分方向</th>
                                             <th>得分条件说明</th>
                                             <th>操作</th>
                                         </tr>
@@ -4928,21 +4927,24 @@
     function checkCondition(rule, condition) {
         const normalizedField = normalizeConditionField(condition.field);
         const fieldValue = rule[normalizedField];
-        const conditionValue = condition.value;
+        const conditionValue = String(condition.value || '').trim();
         
         let passed = false;
         let message = '';
         
         switch (condition.type) {
             case 'field_check':
-                if (conditionValue === '非空') {
+                {
+                const normalized = conditionValue.toLowerCase();
+                if (['非空', 'not_empty', 'non_empty', 'notempty', 'true', '1'].includes(normalized)) {
                     passed = fieldValue && String(fieldValue).trim() !== '';
                     message = passed ? '字段已填写' : '字段未填写';
-                } else if (conditionValue === '空') {
+                } else if (['空', 'empty', 'false', '0'].includes(normalized)) {
                     passed = !fieldValue || String(fieldValue).trim() === '';
                     message = passed ? '字段为空' : '字段不为空';
                 }
                 break;
+                }
                 
             case 'score_check':
             case 'rate_check':
@@ -4964,6 +4966,10 @@
                 } else if (conditionValue.includes('==')) {
                     passed = numValue === targetValue;
                     message = `当前值: ${numValue.toFixed(1)}, 要求: = ${targetValue}`;
+                } else if (!Number.isNaN(targetValue)) {
+                    // 无操作符时默认按 >= 处理，兼容历史默认值（如“70”）
+                    passed = numValue >= targetValue;
+                    message = `当前值: ${numValue.toFixed(1)}, 要求: >= ${targetValue}`;
                 }
                 break;
         }
@@ -5520,11 +5526,6 @@
             'bool': '布尔检查'
         };
         
-        const scoreDirectionMap = {
-            'positive': '正向(越高越好)',
-            'negative': '负向(越低越好)'
-        };
-        
         Object.keys(weightConfig).forEach(key => {
             const item = weightConfig[key];
             const row = tbody.insertRow();
@@ -5551,11 +5552,6 @@
                 <td>
                     <input type="text" class="form-input" value="${item.threshold_value}" style="width:80px;padding:4px 8px;font-size:12px;border-radius:4px;border:1px solid var(--sand2)" onchange="updateThresholdValue('${key}', this.value)">
                 </td>
-                <td>
-                    <select class="form-select" style="padding:4px 8px;font-size:12px;border-radius:4px;border:1px solid var(--sand2)" onchange="updateScoreDirection('${key}', this.value)">
-                        ${Object.keys(scoreDirectionMap).map(d => `<option value="${d}" ${item.score_direction === d ? 'selected' : ''}>${scoreDirectionMap[d]}</option>`).join('')}
-                    </select>
-                </td>
                 <td style="font-size:11px;color:var(--tx3);max-width:200px">
                     ${item.description || '-'}
                 </td>
@@ -5569,7 +5565,7 @@
         const totalWeight = Object.values(weightConfig).reduce((sum, item) => sum + item.weight, 0);
         const totalRow = tbody.insertRow();
         totalRow.innerHTML = `
-            <td colspan="7">
+            <td colspan="6">
                 <div class="weight-total">
                     <div class="weight-total-label">权重总和</div>
                     <div class="weight-total-value" style="color: ${totalWeight === 100 ? '#3b82f6' : '#ef4444'}">${totalWeight}%</div>
@@ -5586,11 +5582,6 @@
     // 更新阈值
     function updateThresholdValue(key, value) {
         weightConfig[key].threshold_value = value;
-    }
-
-    // 更新得分方向
-    function updateScoreDirection(key, value) {
-        weightConfig[key].score_direction = value;
     }
 
     // 渲染权重饼图
@@ -5749,7 +5740,6 @@
             weightConfig[key].weight = defaults[key].weight;
             weightConfig[key].threshold_type = defaults[key].threshold_type;
             weightConfig[key].threshold_value = defaults[key].threshold_value;
-            weightConfig[key].score_direction = defaults[key].score_direction;
         }
         renderWeightTable();
         renderWeightPieChart();
@@ -5769,8 +5759,7 @@
                 dimension_key: key,
                 weight: weightConfig[key].weight,
                 threshold_type: weightConfig[key].threshold_type,
-                threshold_value: weightConfig[key].threshold_value,
-                score_direction: weightConfig[key].score_direction
+                threshold_value: weightConfig[key].threshold_value
             }));
             
             const response = await fetch('/api/score-thresholds/batch', {
@@ -6120,28 +6109,29 @@
         const escalationCount = incidents.filter(inc => Number(inc.escalations || 0) > 0).length;
         const escalationRate = total > 0 ? Number(((escalationCount / total) * 100).toFixed(1)) : 0;
 
-        // 抖动率：规则内5分钟内连续触发
+        // 抖动率：规则维度30分钟窗口内重复事件数 / 规则事件总数
         const ridBuckets = {};
+        let totalRuleEvents = 0;
         incidents.forEach(inc => {
             const rid = String(inc.rule_id || '').trim();
             const ts = Number(inc.created_at || 0);
-            if (!rid || !Number.isFinite(ts) || ts <= 0) return;
+            if (!rid) return;
+            totalRuleEvents += 1;
+            if (!Number.isFinite(ts) || ts <= 0) return;
             if (!ridBuckets[rid]) ridBuckets[rid] = [];
             ridBuckets[rid].push(ts);
         });
-        let jitterRules = 0;
+        let jitterEvents = 0;
         Object.values(ridBuckets).forEach(list => {
             if (list.length < 2) return;
             list.sort((a, b) => a - b);
             for (let index = 1; index < list.length; index++) {
-                if (list[index] - list[index - 1] < 300) {
-                    jitterRules += 1;
-                    break;
+                if (list[index] - list[index - 1] <= 1800) {
+                    jitterEvents += 1;
                 }
             }
         });
-        const jitterDenominator = Object.keys(ridBuckets).length;
-        const jitterRate = jitterDenominator > 0 ? Number(((jitterRules / jitterDenominator) * 100).toFixed(1)) : 0;
+        const jitterRate = totalRuleEvents > 0 ? Number(((jitterEvents / totalRuleEvents) * 100).toFixed(1)) : 0;
 
         // 无效告警率兜底（默认规则口径）
         const invalidCount = incidents.filter(inc => {
@@ -6915,37 +6905,19 @@
     }
 
     function calculateMttaRate(incidents) {
-        const severityMap = { 'S1': 5 * 60, 'S2': 15 * 60, 'S3': 30 * 60 };
-        let totalValid = 0, totalMet = 0;
-        
-        incidents.forEach(inc => {
-            if (inc.severity && inc.seconds_to_ack != null && inc.seconds_to_ack > 0) {
-                const threshold = severityMap[normalizeSeverityLabel(inc.severity)];
-                if (threshold) {
-                    totalValid++;
-                    if (inc.seconds_to_ack <= threshold) totalMet++;
-                }
-            }
-        });
-        
-        return totalValid > 0 ? ((totalMet / totalValid) * 100).toFixed(1) : '0.0';
+        // 与规则评分口径对齐：固定阈值300秒，分母使用筛选条件下总事件数
+        const total = incidents.length;
+        if (total === 0) return '0.0';
+        const metCount = incidents.filter(inc => Number(inc.seconds_to_ack || 0) > 0 && Number(inc.seconds_to_ack || 0) <= 300).length;
+        return ((metCount / total) * 100).toFixed(1);
     }
 
     function calculateMttrRate(incidents) {
-        const severityMap = { 'S1': 15 * 60, 'S2': 30 * 60, 'S3': 60 * 60 };
-        let totalValid = 0, totalMet = 0;
-        
-        incidents.forEach(inc => {
-            if (inc.severity && inc.seconds_to_close != null && inc.seconds_to_close > 0) {
-                const threshold = severityMap[normalizeSeverityLabel(inc.severity)];
-                if (threshold) {
-                    totalValid++;
-                    if (inc.seconds_to_close <= threshold) totalMet++;
-                }
-            }
-        });
-        
-        return totalValid > 0 ? ((totalMet / totalValid) * 100).toFixed(1) : '0.0';
+        // 与规则评分口径对齐：固定阈值1800秒，分母使用筛选条件下总事件数
+        const total = incidents.length;
+        if (total === 0) return '0.0';
+        const metCount = incidents.filter(inc => Number(inc.seconds_to_close || 0) > 0 && Number(inc.seconds_to_close || 0) <= 1800).length;
+        return ((metCount / total) * 100).toFixed(1);
     }
 
     // 获取告警质量得分趋势数据

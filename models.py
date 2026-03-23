@@ -795,14 +795,23 @@ class AlertRule(db.Model):
         mttr_ok_count = sum(1 for inc in incidents if inc.seconds_to_close and inc.seconds_to_close <= 1800)
         mttr_rate = (mttr_ok_count / total_incidents * 100) if total_incidents > 0 else 0
         
-        # 8. 告警抖动率（相同规则10分钟内连续触发的事件数 / 总事件数，要求 <= 10%，得10分）
+        # 8. 告警抖动率（规则维度）
+        # 口径：30min内重复发生的告警事件数 / 该规则在统计窗口内触发的告警事件总数
+        # 说明：采用按时间排序后的滑动窗口统计（事件与其前一事件时间差 <= 1800 秒即记为重复事件）
         jitter_count = 0
         if total_incidents >= 2:
-            incidents_sorted = sorted(incidents, key=lambda x: x.created_at)
-            for i in range(1, len(incidents_sorted)):
-                if incidents_sorted[i].created_at - incidents_sorted[i-1].created_at < 600:
+            valid_timestamps = []
+            for inc in incidents:
+                try:
+                    ts = int(inc.created_at)
+                except (TypeError, ValueError):
+                    continue
+                if ts > 0:
+                    valid_timestamps.append(ts)
+            valid_timestamps.sort()
+            for i in range(1, len(valid_timestamps)):
+                if valid_timestamps[i] - valid_timestamps[i - 1] <= 1800:
                     jitter_count += 1
-                    break
         jitter_rate = (jitter_count / total_incidents * 100) if total_incidents > 0 else 0
 
         # 统一按阈值配置计算各维度得分

@@ -98,7 +98,15 @@ DEFAULT_METRIC_CONFIGS = [
     {'metric_key': 'mttr_rate', 'metric_name': 'MTTR达标率', 'description': '恢复耗时满足阈值的占比'},
     {'metric_key': 'jitter_rate', 'metric_name': '抖动率', 'description': '规则短时间重复触发占比'},
     {'metric_key': 'night_count', 'metric_name': '夜间告警数', 'description': '夜间时段告警数量'},
-    {'metric_key': 'change_count', 'metric_name': '变更期间告警数', 'description': '变更窗口内告警数量'}
+    {'metric_key': 'change_count', 'metric_name': '变更期间告警数', 'description': '变更窗口内告警数量'},
+    {'metric_key': 'suggestion_event_count', 'metric_name': '建议模板-告警事件数', 'description': '事件数过多（当前{{raw_event_count}}个），建议优化告警规则阈值或增加告警聚合策略，减少无效告警触发'},
+    {'metric_key': 'suggestion_invalid_rate', 'metric_name': '建议模板-无效告警率', 'description': '无效告警率过高（当前{{raw_invalid_rate}}%），建议优化告警规则阈值，提高告警准确性'},
+    {'metric_key': 'suggestion_escalation_rate', 'metric_name': '建议模板-自动升级率', 'description': '自动升级率过高（当前{{raw_escalation_rate}}%），建议优化告警升级策略，减少不必要的升级'},
+    {'metric_key': 'suggestion_mtta_rate', 'metric_name': '建议模板-MTTA达标率', 'description': 'MTTA达标率不足（当前{{raw_mtta_rate}}%），建议优化告警通知渠道或增加值班人员响应速度'},
+    {'metric_key': 'suggestion_mttr_rate', 'metric_name': '建议模板-MTTR达标率', 'description': 'MTTR达标率不足（当前{{raw_mttr_rate}}%），建议优化故障处理流程或增加自动化修复能力'},
+    {'metric_key': 'suggestion_jitter_rate', 'metric_name': '建议模板-告警抖动率', 'description': '告警抖动率过高（当前{{raw_jitter_rate}}%），建议增加告警静默时间或优化告警规则触发条件'},
+    {'metric_key': 'suggestion_runbook', 'metric_name': '建议模板-手册填写', 'description': '未填写Runbook手册，建议补充故障处理手册，提高故障处理效率'},
+    {'metric_key': 'suggestion_scene', 'metric_name': '建议模板-场景关联', 'description': '未关联业务场景，建议关联对应的业务场景，便于告警分类和统计分析'}
 ]
 SYNC_LOCK = threading.Lock()
 SCHEDULER_LOCK = threading.Lock()

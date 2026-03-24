@@ -1508,6 +1508,24 @@
                         </table>
                     </div>
                 </div>
+                <div class="table-card" style="margin-top:16px;">
+                    <div class="table-header">
+                        <div class="table-title">建议描述配置列表</div>
+                    </div>
+                    <div class="table-wrap">
+                        <table id="suggestionConfigTable" style="display:none;">
+                            <thead>
+                                <tr>
+                                    <th>建议标识</th>
+                                    <th>建议名称</th>
+                                    <th>建议模板</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="suggestionConfigBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
             
             <!-- 维度配置Tab -->
@@ -2454,6 +2472,17 @@
         jitter_rate: { metric_name: '抖动率', description: '规则短时间重复触发占比' }
     };
 
+    const optimizationSuggestionMetricConfigDefaults = {
+        suggestion_event_count: { metric_name: '建议模板-告警事件数', description: '事件数过多（当前{{raw_event_count}}个），建议优化告警规则阈值或增加告警聚合策略，减少无效告警触发' },
+        suggestion_invalid_rate: { metric_name: '建议模板-无效告警率', description: '无效告警率过高（当前{{raw_invalid_rate}}%），建议优化告警规则阈值，提高告警准确性' },
+        suggestion_escalation_rate: { metric_name: '建议模板-自动升级率', description: '自动升级率过高（当前{{raw_escalation_rate}}%），建议优化告警升级策略，减少不必要的升级' },
+        suggestion_mtta_rate: { metric_name: '建议模板-MTTA达标率', description: 'MTTA达标率不足（当前{{raw_mtta_rate}}%），建议优化告警通知渠道或增加值班人员响应速度' },
+        suggestion_mttr_rate: { metric_name: '建议模板-MTTR达标率', description: 'MTTR达标率不足（当前{{raw_mttr_rate}}%），建议优化故障处理流程或增加自动化修复能力' },
+        suggestion_jitter_rate: { metric_name: '建议模板-告警抖动率', description: '告警抖动率过高（当前{{raw_jitter_rate}}%），建议增加告警静默时间或优化告警规则触发条件' },
+        suggestion_runbook: { metric_name: '建议模板-手册填写', description: '未填写Runbook手册，建议补充故障处理手册，提高故障处理效率' },
+        suggestion_scene: { metric_name: '建议模板-场景关联', description: '未关联业务场景，建议关联对应的业务场景，便于告警分类和统计分析' }
+    };
+
     // 页面导航
     document.addEventListener('DOMContentLoaded', function() {
         initNavigation();
@@ -2546,6 +2575,7 @@
             });
 
             await ensureQualityDimensionMetricConfigs();
+            await ensureOptimizationSuggestionMetricConfigs();
             
             initMetricTooltips();
         } catch (error) {
@@ -2568,6 +2598,41 @@
                 };
 
                 // 先更新本地缓存，确保tooltip立即可用
+                metricConfigs[metricKey] = {
+                    metric_key: metricKey,
+                    metric_name: payload.metric_name,
+                    description: payload.description
+                };
+
+                upsertTasks.push(
+                    fetch(`/api/metrics/config/${metricKey}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    }).then(() => null).catch(() => null)
+                );
+            }
+        });
+
+        if (upsertTasks.length > 0) {
+            await Promise.allSettled(upsertTasks);
+        }
+    }
+
+    async function ensureOptimizationSuggestionMetricConfigs() {
+        const upsertTasks = [];
+
+        Object.keys(optimizationSuggestionMetricConfigDefaults).forEach(metricKey => {
+            const defaults = optimizationSuggestionMetricConfigDefaults[metricKey];
+            const existing = metricConfigs[metricKey];
+            const hasDesc = existing && existing.description && String(existing.description).trim();
+
+            if (!existing || !hasDesc) {
+                const payload = {
+                    metric_name: (existing && existing.metric_name) ? existing.metric_name : defaults.metric_name,
+                    description: hasDesc ? existing.description : defaults.description
+                };
+
                 metricConfigs[metricKey] = {
                     metric_key: metricKey,
                     metric_name: payload.metric_name,
@@ -2699,18 +2764,37 @@
             .then(data => {
                 document.getElementById('metricConfigLoading').style.display = 'none';
                 document.getElementById('metricConfigTable').style.display = 'table';
+                document.getElementById('suggestionConfigTable').style.display = 'table';
                 
-                const tbody = document.getElementById('metricConfigBody');
-                tbody.innerHTML = '';
+                const metricTbody = document.getElementById('metricConfigBody');
+                const suggestionTbody = document.getElementById('suggestionConfigBody');
+                metricTbody.innerHTML = '';
+                suggestionTbody.innerHTML = '';
                 
-                data.configs.forEach(config => {
-                    const row = tbody.insertRow();
+                const configs = data.configs || [];
+                const suggestionConfigs = configs.filter(config => String(config.metric_key || '').startsWith('suggestion_'));
+                const metricConfigsOnly = configs.filter(config => !String(config.metric_key || '').startsWith('suggestion_'));
+
+                metricConfigsOnly.forEach(config => {
+                    const row = metricTbody.insertRow();
                     const descEscaped = (config.description || '').replace(/`/g, '\\`').replace(/'/g, "\\'");
                     const nameEscaped = (config.metric_name || '').replace(/'/g, "\\'");
                     row.innerHTML = `
                         <td>${config.metric_key}</td>
                         <td>${config.metric_name}</td>
                         <td style="max-width:400px;white-space:normal;word-break:break-word;font-size:12px;">${config.description || '-'}</td>
+                        <td><button class="btn btn-secondary" onclick="editMetricDesc('${config.metric_key}', '${nameEscaped}', '${descEscaped}')">编辑</button></td>
+                    `;
+                });
+
+                suggestionConfigs.forEach(config => {
+                    const row = suggestionTbody.insertRow();
+                    const descEscaped = (config.description || '').replace(/`/g, '\\`').replace(/'/g, "\\'");
+                    const nameEscaped = (config.metric_name || '').replace(/'/g, "\\'");
+                    row.innerHTML = `
+                        <td>${config.metric_key}</td>
+                        <td>${config.metric_name}</td>
+                        <td style="max-width:520px;white-space:normal;word-break:break-word;font-size:12px;">${config.description || '-'}</td>
                         <td><button class="btn btn-secondary" onclick="editMetricDesc('${config.metric_key}', '${nameEscaped}', '${descEscaped}')">编辑</button></td>
                     `;
                 });
@@ -5278,44 +5362,73 @@
         event_count: {
             name: '事件数',
             check: (rule, config) => rule.event_count_score !== (weightConfig.event_count?.weight || 20),
-            suggestion: (rule, config) => `事件数过多（当前${rule.raw_event_count || 0}个），建议优化告警规则阈值或增加告警聚合策略，减少无效告警触发`
+            defaultTemplate: '事件数过多（当前{{raw_event_count}}个），建议优化告警规则阈值或增加告警聚合策略，减少无效告警触发'
         },
         invalid_rate: {
             name: '无效告警率',
             check: (rule, config) => rule.invalid_rate_score !== (weightConfig.invalid_rate?.weight || 20),
-            suggestion: (rule, config) => `无效告警率过高（当前${(rule.raw_invalid_rate || 0).toFixed(1)}%），建议优化告警规则阈值，提高告警准确性`
+            defaultTemplate: '无效告警率过高（当前{{raw_invalid_rate}}%），建议优化告警规则阈值，提高告警准确性'
         },
         escalation_rate: {
             name: '自动升级率',
             check: (rule, config) => rule.escalation_rate_score !== (weightConfig.escalation_rate?.weight || 10),
-            suggestion: (rule, config) => `自动升级率过高（当前${(rule.raw_escalation_rate || 0).toFixed(1)}%），建议优化告警升级策略，减少不必要的升级`
+            defaultTemplate: '自动升级率过高（当前{{raw_escalation_rate}}%），建议优化告警升级策略，减少不必要的升级'
         },
         mtta_rate: {
             name: 'MTTA达标率',
             check: (rule, config) => rule.mtta_rate_score !== (weightConfig.mtta_rate?.weight || 10),
-            suggestion: (rule, config) => `MTTA达标率不足（当前${(rule.raw_mtta_rate || 0).toFixed(1)}%），建议优化告警通知渠道或增加值班人员响应速度`
+            defaultTemplate: 'MTTA达标率不足（当前{{raw_mtta_rate}}%），建议优化告警通知渠道或增加值班人员响应速度'
         },
         mttr_rate: {
             name: 'MTTR达标率',
             check: (rule, config) => rule.mttr_rate_score !== (weightConfig.mttr_rate?.weight || 10),
-            suggestion: (rule, config) => `MTTR达标率不足（当前${(rule.raw_mttr_rate || 0).toFixed(1)}%），建议优化故障处理流程或增加自动化修复能力`
+            defaultTemplate: 'MTTR达标率不足（当前{{raw_mttr_rate}}%），建议优化故障处理流程或增加自动化修复能力'
         },
         jitter_rate: {
             name: '告警抖动率',
             check: (rule, config) => rule.jitter_rate_score !== (weightConfig.jitter_rate?.weight || 10),
-            suggestion: (rule, config) => `告警抖动率过高（当前${(rule.raw_jitter_rate || 0).toFixed(1)}%），建议增加告警静默时间或优化告警规则触发条件`
+            defaultTemplate: '告警抖动率过高（当前{{raw_jitter_rate}}%），建议增加告警静默时间或优化告警规则触发条件'
         },
         runbook: {
             name: '手册填写',
             check: (rule, config) => !(rule.rule_note && String(rule.rule_note).trim()),
-            suggestion: (rule, config) => '未填写Runbook手册，建议补充故障处理手册，提高故障处理效率'
+            defaultTemplate: '未填写Runbook手册，建议补充故障处理手册，提高故障处理效率'
         },
         scene: {
             name: '场景关联',
             check: (rule, config) => !(rule.scene && String(rule.scene).trim()),
-            suggestion: (rule, config) => '未关联业务场景，建议关联对应的业务场景，便于告警分类和统计分析'
+            defaultTemplate: '未关联业务场景，建议关联对应的业务场景，便于告警分类和统计分析'
         }
     };
+
+    function formatSuggestionPlaceholderValue(rule, token) {
+        const numericPercentKeys = ['raw_invalid_rate', 'raw_escalation_rate', 'raw_mtta_rate', 'raw_mttr_rate', 'raw_jitter_rate'];
+        if (token === 'raw_event_count') {
+            return String(Number(rule.raw_event_count || 0));
+        }
+        if (numericPercentKeys.includes(token)) {
+            return Number(rule[token] || 0).toFixed(1);
+        }
+        const value = rule[token];
+        if (value === null || value === undefined) return '';
+        return String(value);
+    }
+
+    function renderSuggestionTemplate(template, rule) {
+        if (!template) return '';
+        return String(template).replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, token) => {
+            return formatSuggestionPlaceholderValue(rule, token);
+        });
+    }
+
+    function getOptimizationSuggestionText(key, rule, config) {
+        const configKey = `suggestion_${key}`;
+        const configuredTemplate = metricConfigs?.[configKey]?.description;
+        const template = (configuredTemplate && String(configuredTemplate).trim())
+            ? String(configuredTemplate)
+            : String(config.defaultTemplate || '');
+        return renderSuggestionTemplate(template, rule);
+    }
 
     // 生成优化建议
     function generateOptimizationSuggestions(rule) {
@@ -5327,7 +5440,7 @@
             if (config.check(rule, config)) {
                 suggestions.push({
                     dimension: config.name,
-                    suggestion: config.suggestion(rule, config)
+                    suggestion: getOptimizationSuggestionText(key, rule, config)
                 });
             }
         });

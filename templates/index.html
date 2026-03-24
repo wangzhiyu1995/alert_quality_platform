@@ -513,6 +513,114 @@
         .btn-primary{padding:8px 20px;font-size:13px;background:var(--g500);color:#fff;border:none;border-radius:4px;cursor:pointer;transition:all 0.2s}
         .btn-primary:hover{background:var(--g600)}
 
+        /* 完成条件检查弹窗 */
+        .completion-check-modal{width:760px;max-width:95vw}
+        .completion-check-results{display:flex;flex-direction:column;gap:12px}
+        .completion-check-summary{
+            display:grid;
+            grid-template-columns:repeat(4,minmax(120px,1fr));
+            gap:8px;
+        }
+        .completion-summary-item{
+            background:var(--sand);
+            border:1px solid var(--sand2);
+            border-radius:8px;
+            padding:10px 12px;
+        }
+        .completion-summary-item .label{font-size:11px;color:var(--tx3);margin-bottom:4px}
+        .completion-summary-item .value{font-size:18px;font-weight:700;color:var(--tx1)}
+        .completion-summary-item.warn{background:#fff1f0;border-color:#ffcdd2}
+        .completion-summary-item.ok{background:#f6ffed;border-color:#b7eb8f}
+
+        .completion-rule-card{
+            border:1px solid var(--sand2);
+            border-radius:10px;
+            background:#fff;
+            overflow:hidden;
+        }
+        .completion-rule-card .rule-header{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:8px;
+            padding:10px 12px;
+            background:var(--sand);
+            border-bottom:1px solid var(--sand2);
+        }
+        .completion-rule-card .rule-name{font-size:13px;font-weight:600;color:var(--tx1)}
+        .completion-rule-card .rule-meta{display:flex;align-items:center;gap:6px}
+        .completion-rule-card .rule-meta-tag{
+            padding:2px 8px;
+            border-radius:999px;
+            font-size:11px;
+            font-weight:600;
+        }
+        .completion-rule-card .rule-meta-tag.ok{background:#dcfce7;color:#16a34a}
+        .completion-rule-card .rule-meta-tag.warn{background:#fee2e2;color:#dc2626}
+
+        .completion-condition-group{padding:10px 12px}
+        .completion-condition-group + .completion-condition-group{border-top:1px dashed var(--sand2)}
+        .completion-condition-title{font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px}
+        .completion-condition-list{display:flex;flex-direction:column;gap:8px}
+        .completion-condition-item{
+            border:1px solid var(--sand2);
+            border-radius:8px;
+            padding:8px 10px;
+            background:#fff;
+        }
+        .completion-condition-item.failed{background:#fff7f7;border-color:#ffcdd2}
+        .completion-condition-item.passed{background:#f6ffed;border-color:#b7eb8f}
+        .completion-condition-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+        .completion-condition-badge{
+            padding:2px 8px;
+            border-radius:999px;
+            font-size:11px;
+            font-weight:600;
+            flex-shrink:0;
+        }
+        .completion-condition-badge.failed{background:#fee2e2;color:#dc2626}
+        .completion-condition-badge.passed{background:#dcfce7;color:#16a34a}
+        .completion-condition-name{font-size:12px;font-weight:600;color:var(--tx1)}
+        .completion-condition-message{font-size:12px;color:var(--tx2);line-height:1.5}
+        .completion-condition-guide{
+            margin-top:6px;
+            padding:6px 8px;
+            border-radius:6px;
+            background:#eef6ff;
+            color:#1d4ed8;
+            font-size:12px;
+            line-height:1.5;
+        }
+        .completion-passed-group summary{
+            cursor:pointer;
+            font-size:12px;
+            color:var(--tx2);
+            font-weight:600;
+            list-style:none;
+        }
+        .completion-passed-group summary::-webkit-details-marker{display:none}
+        .completion-passed-group summary::after{
+            content:'展开';
+            font-size:11px;
+            color:var(--tx3);
+            margin-left:8px;
+            font-weight:500;
+        }
+        .completion-passed-group[open] summary::after{content:'收起'}
+        .completion-empty{padding:8px 0;font-size:12px;color:var(--tx3)}
+        .completion-check-final{
+            border-radius:8px;
+            padding:12px;
+            text-align:center;
+            font-size:13px;
+            font-weight:600;
+        }
+        .completion-check-final.error{background:#fff1f0;color:#cf1322}
+        .completion-check-final.success{background:#f6ffed;color:#389e0d}
+        @media (max-width: 760px){
+            .completion-check-summary{grid-template-columns:repeat(2,minmax(100px,1fr))}
+        }
+
         /* RESPONSIVE */
         @media (max-width:1200px){
             .charts-grid{grid-template-columns:1fr}
@@ -2321,13 +2429,13 @@
 
 <!-- 完成条件检查模态窗口 -->
 <div class="modal-overlay" id="completionCheckModal" style="display:none;">
-    <div class="modal" style="width: 700px;">
+    <div class="modal completion-check-modal">
         <div class="modal-header">
             <div class="modal-title">完成条件检查</div>
             <button class="modal-close" onclick="closeCompletionCheckModal()">&times;</button>
         </div>
         <div class="modal-body">
-            <div id="completionCheckResults"></div>
+            <div id="completionCheckResults" class="completion-check-results"></div>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeCompletionCheckModal()">取消</button>
@@ -5110,56 +5218,108 @@
     // 显示完成条件检查结果
     function showCompletionCheckResults(checkResults, allPassed) {
         const resultsContainer = document.getElementById('completionCheckResults');
-        
-        let html = '';
-        checkResults.forEach(ruleResult => {
-            html += `<div style="margin-bottom: 20px; padding: 12px; background: var(--sand); border-radius: 8px;">`;
-            html += `<div style="font-weight: 600; margin-bottom: 8px;">规则: ${ruleResult.rule_name}</div>`;
-            
-            const failedConditions = ruleResult.conditions.filter(c => !c.passed);
-            const passedConditions = ruleResult.conditions.filter(c => c.passed);
-            
-            if (failedConditions.length > 0) {
-                html += `<div style="margin-bottom: 8px; color: #ff4d4f; font-weight: 600;">未通过的条件 (${failedConditions.length}项):</div>`;
-                failedConditions.forEach(condition => {
-                    html += `<div style="display: flex; flex-direction: column; margin-bottom: 8px; padding: 8px; background: #fff1f0; border-radius: 4px; border-left: 3px solid #ff4d4f;">`;
-                    html += `<div style="display: flex; align-items: center; margin-bottom: 4px;">`;
-                    html += `<span class="badge badge-danger" style="margin-right: 8px;">✗ 未通过</span>`;
-                    html += `<span style="font-weight: 600;">${condition.name}</span>`;
-                    html += `</div>`;
-                    html += `<div style="color: #666; font-size: 12px; margin-left: 24px;">${condition.message}</div>`;
-                    if (condition.guide) {
-                        html += `<div style="color: #1890ff; font-size: 12px; margin-left: 24px; margin-top: 4px;">操作指引: ${condition.guide}</div>`;
-                    }
-                    html += `</div>`;
-                });
-            }
-            
-            if (passedConditions.length > 0) {
-                html += `<div style="margin-bottom: 8px; color: #52c41a; font-weight: 600;">已通过的条件 (${passedConditions.length}项):</div>`;
-                passedConditions.forEach(condition => {
-                    html += `<div style="display: flex; align-items: center; margin-bottom: 4px; padding: 4px 8px; background: #f6ffed; border-radius: 4px;">`;
-                    html += `<span class="badge badge-success" style="margin-right: 8px;">✓ 通过</span>`;
-                    html += `<span>${condition.name}: ${condition.message}</span>`;
-                    html += `</div>`;
-                });
-            }
-            
-            html += `</div>`;
+        const safeCheckResults = Array.isArray(checkResults) ? checkResults : [];
+        const summary = {
+            rules: safeCheckResults.length,
+            failedRules: 0,
+            passedConditions: 0,
+            failedConditions: 0
+        };
+
+        safeCheckResults.forEach((ruleResult) => {
+            const conditions = Array.isArray(ruleResult.conditions) ? ruleResult.conditions : [];
+            const failedCount = conditions.filter(c => !c.passed).length;
+            summary.failedConditions += failedCount;
+            summary.passedConditions += conditions.length - failedCount;
+            if (failedCount > 0) summary.failedRules += 1;
         });
-        
+
+        const renderConditionItems = (conditions, statusClass, statusLabel, showGuide) => {
+            if (!conditions.length) {
+                return '<div class="completion-empty">暂无数据</div>';
+            }
+
+            return `
+                <div class="completion-condition-list">
+                    ${conditions.map(condition => `
+                        <div class="completion-condition-item ${statusClass}">
+                            <div class="completion-condition-head">
+                                <span class="completion-condition-badge ${statusClass}">${statusLabel}</span>
+                                <span class="completion-condition-name">${escapeHtml(condition.name || '-')}</span>
+                            </div>
+                            <div class="completion-condition-message">${escapeHtml(condition.message || '-')}</div>
+                            ${showGuide && condition.guide ? `<div class="completion-condition-guide">操作建议：${escapeHtml(condition.guide)}</div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        };
+
+        let html = `
+            <div class="completion-check-summary">
+                <div class="completion-summary-item">
+                    <div class="label">检查规则数</div>
+                    <div class="value">${summary.rules}</div>
+                </div>
+                <div class="completion-summary-item ${summary.failedRules > 0 ? 'warn' : 'ok'}">
+                    <div class="label">未通过规则</div>
+                    <div class="value">${summary.failedRules}</div>
+                </div>
+                <div class="completion-summary-item">
+                    <div class="label">通过条件</div>
+                    <div class="value">${summary.passedConditions}</div>
+                </div>
+                <div class="completion-summary-item ${summary.failedConditions > 0 ? 'warn' : 'ok'}">
+                    <div class="label">未通过条件</div>
+                    <div class="value">${summary.failedConditions}</div>
+                </div>
+            </div>
+        `;
+
+        safeCheckResults.forEach(ruleResult => {
+            const failedConditions = (ruleResult.conditions || []).filter(c => !c.passed);
+            const passedConditions = (ruleResult.conditions || []).filter(c => c.passed);
+            const hasFailed = failedConditions.length > 0;
+            const safeRuleName = escapeHtml(ruleResult.rule_name || ruleResult.rule_id || '未命名规则');
+            const failedTag = hasFailed
+                ? `<span class="rule-meta-tag warn">未通过 ${failedConditions.length}</span>`
+                : '<span class="rule-meta-tag ok">全部通过</span>';
+
+            html += `
+                <div class="completion-rule-card ${hasFailed ? 'has-failed' : 'all-passed'}">
+                    <div class="rule-header">
+                        <div class="rule-name">${safeRuleName}</div>
+                        <div class="rule-meta">
+                            ${failedTag}
+                            <span class="rule-meta-tag ok">通过 ${passedConditions.length}</span>
+                        </div>
+                    </div>
+                    <div class="completion-condition-group">
+                        <div class="completion-condition-title">未通过项（${failedConditions.length}）</div>
+                        ${renderConditionItems(failedConditions, 'failed', '未通过', true)}
+                    </div>
+                    <details class="completion-condition-group completion-passed-group"${hasFailed ? '' : ' open'}>
+                        <summary>已通过项（${passedConditions.length}）</summary>
+                        ${renderConditionItems(passedConditions, 'passed', '通过', false)}
+                    </details>
+                </div>
+            `;
+        });
+
+        html += !allPassed
+            ? '<div class="completion-check-final error">存在未满足条件，暂不可标记完成。请根据操作建议处理后重试。</div>'
+            : '<div class="completion-check-final success">所有条件已满足，可以标记完成。</div>';
+
         resultsContainer.innerHTML = html;
-        
+
         // 根据检查结果设置按钮状态
         const confirmBtn = document.getElementById('confirmCompletionBtn');
         if (!allPassed) {
             confirmBtn.disabled = true;
             confirmBtn.style.opacity = '0.5';
-            resultsContainer.innerHTML += '<div style="color: #ff4d4f; font-weight: 600; margin-top: 12px; padding: 12px; background: #fff1f0; border-radius: 8px; text-align: center;">存在未满足的条件，无法标记完成。请根据上述操作指引完成相应操作后再试。</div>';
         } else {
             confirmBtn.disabled = false;
             confirmBtn.style.opacity = '1';
-            resultsContainer.innerHTML += '<div style="color: #52c41a; font-weight: 600; margin-top: 12px; padding: 12px; background: #f6ffed; border-radius: 8px; text-align: center;">所有条件已满足，可以标记完成。</div>';
         }
         
         // 显示模态窗口

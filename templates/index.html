@@ -951,13 +951,13 @@
                     <label>结束日期</label>
                     <input type="date" id="endDate" value="2026-02-22">
                 </div>
-                <button class="btn btn-primary" id="applyFilter">应用筛选</button>
+                <button class="btn btn-primary" id="applyFilter">筛选</button>
                 <button class="btn btn-secondary" id="resetFilter">重置</button>
             </div>
 
             <div class="stats" id="stats">
                 <div class="stat stat-combined">
-                    <button class="stat-trend-btn" onclick="showMetricTrend('total_count', '总事件数')" title="查看趋势">
+                    <button class="stat-trend-btn" onclick="showMetricTrend('total_count', '总告警数')" title="查看趋势">
                         <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M3 17l4-8 4 4 4-8 2 4" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
@@ -969,15 +969,15 @@
                     </div>
                     <div class="stat-main">
                         <div class="stat-val-large" id="totalCount">-</div>
-                        <div class="stat-lbl">总事件数<span class="metric-desc-icon" data-metric="total_count">ⓘ</span></div>
+                        <div class="stat-lbl">总告警数<span class="metric-desc-icon" data-metric="total_count">ⓘ</span></div>
                     </div>
                     <div class="stat-sub-items">
                         <div class="stat-sub-item">
-                            <span class="stat-sub-label">夜间</span>
+                            <span class="stat-sub-label">夜间<span class="metric-desc-icon" data-metric="night_count">！</span></span>
                             <span class="stat-sub-value" id="nightCount">-</span>
                         </div>
                         <div class="stat-sub-item">
-                            <span class="stat-sub-label">变更期间</span>
+                            <span class="stat-sub-label">变更期间<span class="metric-desc-icon" data-metric="change_count">！</span></span>
                             <span class="stat-sub-value" id="changeCount">-</span>
                         </div>
                     </div>

@@ -207,9 +207,10 @@
         .stat-combined{
             flex:2 !important;
             max-width:calc(25% - 10px) !important;
-            flex-direction:column;
-            align-items:flex-start;
-            gap:3px;
+            display:grid;
+            grid-template-columns:minmax(0,1fr) 44%;
+            align-items:stretch;
+            gap:8px;
             padding:9px 14px;
         }
         .stat-combined .stat-ico{
@@ -219,16 +220,22 @@
             width:28px;
             height:28px;
         }
-        .stat-main{flex:1}
+        .stat-combined-left{
+            min-width:0;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+        }
+        .stat-main{display:flex;flex-direction:column;gap:2px}
         .stat-val-large{font-size:28px;font-weight:700;letter-spacing:-.03em;line-height:1;color:var(--tx1)}
         .stat-sub-items{
             display:grid;
             grid-template-columns:repeat(3,minmax(0,1fr));
             gap:4px 8px;
             padding-top:4px;
+            margin-top:4px;
             border-top:1px dashed var(--sand3);
-            width:56%;
-            flex:0 0 56%;
+            width:100%;
         }
         .stat-sub-item{
             display:flex;
@@ -248,23 +255,15 @@
         .stat-sub-dot.change{background:#FAC858}
         .stat-sub-label{font-size:9px;color:var(--tx3)}
         .stat-sub-value{font-size:13px;font-weight:600;color:var(--tx1)}
-        .stat-combined-bottom{
-            width:100%;
-            display:flex;
-            align-items:center;
-            gap:0;
-        }
         .stat-mini-pie-wrap{
             display:flex;
             flex-direction:column;
             align-items:center;
             justify-content:center;
             gap:2px;
-            width:44%;
-            flex:0 0 44%;
-            flex-shrink:0;
             border-left:1px dashed var(--sand3);
             padding-left:8px;
+            min-width:0;
         }
         .stat-mini-pie{width:120px;height:92px}
         .stat-mini-pie-label{
@@ -280,6 +279,15 @@
             font-size:8.5px;
             color:var(--tx3);
             white-space:nowrap;
+        }
+        @media (max-width: 1500px){
+            .stat-combined{
+                grid-template-columns:minmax(0,1fr) 42%;
+                gap:6px;
+                padding:8px 12px;
+            }
+            .stat-mini-pie{width:112px;height:86px}
+            .stat-sub-items{gap:3px 6px}
         }
 
         /* STAT TREND BUTTON */
@@ -1045,11 +1053,11 @@
 
             <div class="stats" id="stats">
                 <div class="stat stat-combined">
-                    <div class="stat-main">
-                        <div class="stat-val-large" id="totalCount">-</div>
-                        <div class="stat-lbl">总告警数<span class="metric-desc-icon" data-metric="total_count">ⓘ</span></div>
-                    </div>
-                    <div class="stat-combined-bottom">
+                    <div class="stat-combined-left">
+                        <div class="stat-main">
+                            <div class="stat-val-large" id="totalCount">-</div>
+                            <div class="stat-lbl">总告警数<span class="metric-desc-icon" data-metric="total_count">ⓘ</span></div>
+                        </div>
                         <div class="stat-sub-items">
                             <div class="stat-sub-item">
                                 <span class="stat-sub-label-row"><span class="stat-sub-dot day"></span><span class="stat-sub-label">白天<span class="metric-desc-icon" data-metric="day_count">ⓘ</span></span></span>
@@ -1064,13 +1072,13 @@
                                 <span class="stat-sub-value" id="changeCount">-</span>
                             </div>
                         </div>
-                        <div class="stat-mini-pie-wrap">
-                            <div id="totalAlertRatioChart" class="stat-mini-pie"></div>
-                            <div class="stat-mini-legend">
-                                <span><span class="stat-sub-dot day"></span>白天</span>
-                                <span><span class="stat-sub-dot night"></span>夜间</span>
-                                <span><span class="stat-sub-dot change"></span>变更</span>
-                            </div>
+                    </div>
+                    <div class="stat-mini-pie-wrap">
+                        <div id="totalAlertRatioChart" class="stat-mini-pie"></div>
+                        <div class="stat-mini-legend">
+                            <span><span class="stat-sub-dot day"></span>白天</span>
+                            <span><span class="stat-sub-dot night"></span>夜间</span>
+                            <span><span class="stat-sub-dot change"></span>变更</span>
                         </div>
                     </div>
                 </div>

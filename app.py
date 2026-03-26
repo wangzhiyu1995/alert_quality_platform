@@ -97,6 +97,7 @@ DEFAULT_METRIC_CONFIGS = [
     {'metric_key': 'mtta_rate', 'metric_name': 'MTTA达标率', 'description': '认领耗时满足阈值的占比'},
     {'metric_key': 'mttr_rate', 'metric_name': 'MTTR达标率', 'description': '恢复耗时满足阈值的占比'},
     {'metric_key': 'jitter_rate', 'metric_name': '抖动率', 'description': '规则短时间重复触发占比'},
+    {'metric_key': 'day_count', 'metric_name': '白天告警数', 'description': '白天时间窗口（07:00-22:00）内告警数量'},
     {'metric_key': 'night_count', 'metric_name': '夜间告警数', 'description': '夜间时段告警数量'},
     {'metric_key': 'change_count', 'metric_name': '变更期间告警数', 'description': '变更窗口内告警数量'},
     {'metric_key': 'suggestion_event_count', 'metric_name': '建议模板-告警事件数', 'description': '事件数过多（当前{{raw_event_count}}个），建议优化告警规则阈值或增加告警聚合策略，减少无效告警触发'},

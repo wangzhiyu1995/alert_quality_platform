@@ -1623,10 +1623,10 @@
                         <div class="table-title">告警规则质量得分</div>
                         <div class="table-actions">
                             <select id="qualityScoreSort" onchange="onAlertRulesSortSelectChange()">
+                                <option value="event_count-desc" selected>按告警数量降序</option>
+                                <option value="event_count-asc">按告警数量升序</option>
                                 <option value="quality_score-desc">按质量得分降序</option>
                                 <option value="quality_score-asc">按质量得分升序</option>
-                                <option value="event_count-desc">按告警数量降序</option>
-                                <option value="event_count-asc">按告警数量升序</option>
                                 <option value="rule_name-asc">按规则名称升序</option>
                                 <option value="rule_name-desc">按规则名称降序</option>
                             </select>
@@ -2648,7 +2648,7 @@
     let weightConfig = {}; // 存储权重配置
     let weightPieChart = null; // 权重饼图实例
     let alertRulesData = [];
-    let alertRulesSortState = { key: 'quality_score', order: 'desc' };
+    let alertRulesSortState = { key: 'raw_event_count', order: 'desc' };
     let alertRulesStatusFilters = { scene: '', runbook: '' };
     let alertRulesCurrentPage = 1;
     const alertRulesPageSize = 20;
@@ -2694,6 +2694,15 @@
             startInput.value = formatDateInputValue(start);
             endInput.value = formatDateInputValue(end);
         }
+    }
+
+    function syncGovernanceDateRangeWithDashboard() {
+        const dashboardStart = document.getElementById('startDate')?.value || '';
+        const dashboardEnd = document.getElementById('endDate')?.value || '';
+        const govStart = document.getElementById('govStartDate');
+        const govEnd = document.getElementById('govEndDate');
+        if (govStart) govStart.value = dashboardStart;
+        if (govEnd) govEnd.value = dashboardEnd;
     }
     
     // Toast消息提示函数
@@ -2807,7 +2816,7 @@
         });
 
         setDashboardDateRangeExcludingToday(7);
-        setRecentDateRange('govStartDate', 'govEndDate', 7);
+        syncGovernanceDateRangeWithDashboard();
         setRecentDateRange('evtStartDate', 'evtEndDate', 7);
         setRecentDateRange('manualSyncStartDate', 'manualSyncEndDate', 7);
 
@@ -3000,6 +3009,7 @@
                 
                 if (page === 'governance') {
                     initGovernanceFilterOptions();
+                    syncGovernanceDateRangeWithDashboard();
                     applyGovernanceFilter();
                 }
 
@@ -4336,7 +4346,7 @@
         if (runbookFilterSelect) runbookFilterSelect.value = '';
         alertRulesStatusFilters.scene = '';
         alertRulesStatusFilters.runbook = '';
-        setRecentDateRange('govStartDate', 'govEndDate', 7);
+        syncGovernanceDateRangeWithDashboard();
         updateGovSubDomainOptions('');
         updateGovSystemOptions('', '');
         loadAlertRules();
@@ -4572,6 +4582,7 @@
     // 应用筛选
     async function applyFilter() {
         const filters = getFilterParams();
+        syncGovernanceDateRangeWithDashboard();
         await fetchIncidents(filters);
         const topAlertsTask = fetchTopAlerts(filters);
         await fetchNewMetrics(filters);
@@ -4590,6 +4601,7 @@
             dateQuickRangeSelect.value = '7d';
         }
         setDashboardDateRangeExcludingToday(7);
+        syncGovernanceDateRangeWithDashboard();
         updateSubDomainOptions('');
         updateSystemOptions('', '');
         updateRuleIdOptions('', '', '');

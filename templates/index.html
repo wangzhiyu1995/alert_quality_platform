@@ -188,7 +188,7 @@
         .stat{
             display:flex;align-items:center;gap:10px;
             background:var(--white);border:1.5px solid var(--sand2);border-radius:11px;
-            padding:11px 16px;flex:1;min-width:148px;max-width:calc(12.5% - 10px);transition:all .2s;cursor:default;
+            padding:11px 16px;flex:1;min-width:148px;max-width:calc(12.5% - 10px);transition:all .2s;cursor:default;position:relative;
         }
         .stat:hover{border-color:var(--g500);box-shadow:var(--sh1);transform:translateY(-1px)}
         .stat-ico{
@@ -225,7 +225,8 @@
             gap:16px;
             padding-top:8px;
             border-top:1px dashed var(--sand3);
-            width:100%;
+            width:auto;
+            flex:1;
         }
         .stat-sub-item{
             display:flex;
@@ -234,6 +235,27 @@
         }
         .stat-sub-label{font-size:10px;color:var(--tx3)}
         .stat-sub-value{font-size:14px;font-weight:600;color:var(--tx1)}
+        .stat-combined-bottom{
+            width:100%;
+            display:flex;
+            align-items:center;
+            gap:10px;
+        }
+        .stat-mini-pie-wrap{
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            gap:2px;
+            width:84px;
+            flex-shrink:0;
+        }
+        .stat-mini-pie{width:76px;height:76px}
+        .stat-mini-pie-label{
+            font-size:9px;
+            color:var(--tx3);
+            line-height:1;
+            white-space:nowrap;
+        }
 
         /* STAT TREND BUTTON */
         .stat-trend-btn{
@@ -394,6 +416,7 @@
             display:flex;align-items:center;justify-content:space-between;
         }
         .table-title{font-size:14px;font-weight:600;color:var(--tx1)}
+        .table-subtitle{font-size:12px;color:var(--tx3);font-weight:500;margin-left:4px}
         .table-wrap{overflow-x:auto}
         table{width:100%;border-collapse:collapse;font-size:11.5px}
         thead{background:var(--sand);border-bottom:1px solid var(--sand2)}
@@ -419,7 +442,11 @@
         .badge-g{background:var(--g100);color:var(--g600)}
         .badge-b{background:#eef4fd;color:var(--blue)}
         .badge-success{background:#d4edda;color:#155724}
+        .badge-warning{background:#fef3c7;color:#b45309}
+        .badge-danger{background:#fee2e2;color:#b91c1c}
         .badge-secondary{background:#e2e3e5;color:#383d41}
+        .rule-link{color:#166534;text-decoration:none;border-bottom:1px dashed #86efac}
+        .rule-link:hover{color:#15803d;border-bottom-color:#22c55e}
         
         /* 表格单元格状态样式 */
         .status-badge{display:inline-block;padding:4px 10px;border-radius:var(--rs);font-size:12px;font-weight:500}
@@ -461,6 +488,42 @@
             border: 1px solid #d9d9d9;
             border-radius: 4px;
         }
+        .todo-filter-bar{
+            display:flex;
+            align-items:flex-end;
+            gap:8px;
+            flex-wrap:wrap;
+        }
+        .todo-filter-group{
+            display:flex;
+            flex-direction:column;
+            gap:4px;
+        }
+        .todo-filter-group label{
+            font-size:11px;
+            color:var(--tx3);
+        }
+        .todo-filter-group input,
+        .todo-filter-group select{
+            min-width:150px;
+            padding:6px 10px;
+            border:1px solid var(--sand3);
+            border-radius:6px;
+            font-size:12px;
+        }
+        .todo-status-badge{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            padding:2px 10px;
+            border-radius:999px;
+            font-size:11px;
+            font-weight:600;
+            line-height:1.4;
+        }
+        .todo-status-not-started{background:#fee2e2;color:#b91c1c}
+        .todo-status-in-progress{background:#fef3c7;color:#92400e}
+        .todo-status-completed{background:#dcfce7;color:#166534}
         
         .loading{text-align:center;padding:40px;color:var(--tx3);font-size:13px}
         .error{text-align:center;padding:40px;color:var(--red);font-size:13px}
@@ -859,7 +922,7 @@
                     <circle cx="6" cy="10" r="1"/>
                     <circle cx="6" cy="15" r="1"/>
                 </svg>
-                <span>事件列表</span>
+                <span>告警列表</span>
             </div>
             <div class="nav-sub-item" data-page="dimension-config">
                 <svg class="nav-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -971,14 +1034,20 @@
                         <div class="stat-val-large" id="totalCount">-</div>
                         <div class="stat-lbl">总告警数<span class="metric-desc-icon" data-metric="total_count">ⓘ</span></div>
                     </div>
-                    <div class="stat-sub-items">
-                        <div class="stat-sub-item">
-                            <span class="stat-sub-label">夜间<span class="metric-desc-icon" data-metric="night_count">！</span></span>
-                            <span class="stat-sub-value" id="nightCount">-</span>
+                    <div class="stat-combined-bottom">
+                        <div class="stat-sub-items">
+                            <div class="stat-sub-item">
+                                <span class="stat-sub-label">夜间<span class="metric-desc-icon" data-metric="night_count">！</span></span>
+                                <span class="stat-sub-value" id="nightCount">-</span>
+                            </div>
+                            <div class="stat-sub-item">
+                                <span class="stat-sub-label">变更期间<span class="metric-desc-icon" data-metric="change_count">！</span></span>
+                                <span class="stat-sub-value" id="changeCount">-</span>
+                            </div>
                         </div>
-                        <div class="stat-sub-item">
-                            <span class="stat-sub-label">变更期间<span class="metric-desc-icon" data-metric="change_count">！</span></span>
-                            <span class="stat-sub-value" id="changeCount">-</span>
+                        <div class="stat-mini-pie-wrap">
+                            <div id="totalAlertRatioChart" class="stat-mini-pie"></div>
+                            <div class="stat-mini-pie-label">夜间/变更/白天</div>
                         </div>
                     </div>
                 </div>
@@ -1059,8 +1128,8 @@
                     </div>
                     <div>
                         <div class="stat-val" id="mttaValue">-</div>
-                        <div class="stat-sub" id="mttaSub">中位数: - / 平均: -</div>
                         <div class="stat-lbl">MTTA(分钟)<span class="metric-desc-icon" data-metric="mtta">ⓘ</span></div>
+                        <div class="stat-sub" id="mttaSub">中位数-、平均：-</div>
                     </div>
                 </div>
                 <div class="stat">
@@ -1076,8 +1145,8 @@
                     </div>
                     <div>
                         <div class="stat-val" id="mttrValue">-</div>
-                        <div class="stat-sub" id="mttrSub">中位数: - / 平均: -</div>
                         <div class="stat-lbl">MTTR(分钟)<span class="metric-desc-icon" data-metric="mttr">ⓘ</span></div>
+                        <div class="stat-sub" id="mttrSub">中位数-、平均：-</div>
                     </div>
                 </div>
             </div>
@@ -1106,7 +1175,7 @@
                             <div class="dimension-header">
                                 <div class="dimension-dot"></div>
                                 <div class="dimension-name">告警事件数<span class="metric-desc-icon" data-metric="event_count">ⓘ</span></div>
-                                <div class="dimension-weight" id="weight_event_count">20%</div>
+                                <div class="dimension-weight" id="weight_event_count" title="权重">20%</div>
                             </div>
                             <div class="dimension-value" id="dim_event_count">-</div>
                         </div>
@@ -1114,7 +1183,7 @@
                             <div class="dimension-header">
                                 <div class="dimension-dot"></div>
                                 <div class="dimension-name">手册覆盖率<span class="metric-desc-icon" data-metric="runbook">ⓘ</span></div>
-                                <div class="dimension-weight" id="weight_runbook">10%</div>
+                                <div class="dimension-weight" id="weight_runbook" title="权重">10%</div>
                             </div>
                             <div class="dimension-value" id="dim_runbook">-</div>
                         </div>
@@ -1122,7 +1191,7 @@
                             <div class="dimension-header">
                                 <div class="dimension-dot"></div>
                                 <div class="dimension-name">场景关联率<span class="metric-desc-icon" data-metric="scene">ⓘ</span></div>
-                                <div class="dimension-weight" id="weight_scene">10%</div>
+                                <div class="dimension-weight" id="weight_scene" title="权重">10%</div>
                             </div>
                             <div class="dimension-value" id="dim_scene">-</div>
                         </div>
@@ -1130,7 +1199,7 @@
                             <div class="dimension-header">
                                 <div class="dimension-dot"></div>
                                 <div class="dimension-name">无效告警率<span class="metric-desc-icon" data-metric="invalid_rate">ⓘ</span></div>
-                                <div class="dimension-weight" id="weight_invalid_rate">20%</div>
+                                <div class="dimension-weight" id="weight_invalid_rate" title="权重">20%</div>
                             </div>
                             <div class="dimension-value" id="dim_invalid_rate">-</div>
                         </div>
@@ -1138,7 +1207,7 @@
                             <div class="dimension-header">
                                 <div class="dimension-dot"></div>
                                 <div class="dimension-name">自动升级率<span class="metric-desc-icon" data-metric="escalation_rate">ⓘ</span></div>
-                                <div class="dimension-weight" id="weight_escalation_rate">10%</div>
+                                <div class="dimension-weight" id="weight_escalation_rate" title="权重">10%</div>
                             </div>
                             <div class="dimension-value" id="dim_escalation_rate">-</div>
                         </div>
@@ -1146,7 +1215,7 @@
                             <div class="dimension-header">
                                 <div class="dimension-dot"></div>
                                 <div class="dimension-name">MTTA达标率<span class="metric-desc-icon" data-metric="mtta_rate">ⓘ</span></div>
-                                <div class="dimension-weight" id="weight_mtta_rate">10%</div>
+                                <div class="dimension-weight" id="weight_mtta_rate" title="权重">10%</div>
                             </div>
                             <div class="dimension-value" id="dim_mtta_rate">-</div>
                         </div>
@@ -1154,7 +1223,7 @@
                             <div class="dimension-header">
                                 <div class="dimension-dot"></div>
                                 <div class="dimension-name">MTTR达标率<span class="metric-desc-icon" data-metric="mttr_rate">ⓘ</span></div>
-                                <div class="dimension-weight" id="weight_mttr_rate">10%</div>
+                                <div class="dimension-weight" id="weight_mttr_rate" title="权重">10%</div>
                             </div>
                             <div class="dimension-value" id="dim_mttr_rate">-</div>
                         </div>
@@ -1162,7 +1231,7 @@
                             <div class="dimension-header">
                                 <div class="dimension-dot"></div>
                                 <div class="dimension-name">告警抖动率<span class="metric-desc-icon" data-metric="jitter_rate">ⓘ</span></div>
-                                <div class="dimension-weight" id="weight_jitter_rate">10%</div>
+                                <div class="dimension-weight" id="weight_jitter_rate" title="权重">10%</div>
                             </div>
                             <div class="dimension-value" id="dim_jitter_rate">-</div>
                         </div>
@@ -1360,7 +1429,7 @@
 
             <div class="table-card">
                 <div class="table-header">
-                    <div class="table-title">高频告警统计</div>
+                    <div class="table-title">高频告警统计<span id="topAlertsRangeLabel" class="table-subtitle"></span></div>
                 </div>
                 <div class="table-wrap fixed-height">
                     <div id="topAlertsLoading" class="loading">加载中...</div>
@@ -1386,7 +1455,7 @@
             </div>
         </div>
 
-        <!-- 事件列表页面 -->
+        <!-- 告警事件列表页面 -->
         <div class="page" id="page-event-list">
             <div class="ph">
                 <h1 class="ph-title">告警事件列表</h1>
@@ -1433,8 +1502,8 @@
                         <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>故障ID</th>
-                                <th>故障标题</th>
+                                <th>告警ID</th>
+                                <th>告警标题</th>
                                 <th>规则ID</th>
                                 <th>规则名称</th>
                                 <th>严重程度</th>
@@ -1498,7 +1567,7 @@
 
             <div class="config-tabs">
                 <div class="config-tab active" data-tab="rules">告警规则质量得分</div>
-                <div class="config-tab" data-tab="todo">待办事项</div>
+                <div class="config-tab" data-tab="todo">改进事项</div>
             </div>
 
             <!-- 告警规则质量得分Tab -->
@@ -1542,15 +1611,37 @@
                             <tbody id="alertRulesBody"></tbody>
                         </table>
                     </div>
+                    <div class="pagination" id="alertRulesPagination" style="display:none;">
+                        <button class="btn btn-sm" id="alertRulesPrevBtn" onclick="alertRulesPrevPage()">上一页</button>
+                        <span id="alertRulesPageInfo">第 1 页</span>
+                        <button class="btn btn-sm" id="alertRulesNextBtn" onclick="alertRulesNextPage()">下一页</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- 待办事项Tab -->
+            <!-- 改进事项Tab -->
             <div class="config-tab-content" id="tab-todo">
                 <div class="table-card">
                     <div class="table-header">
-                        <div class="table-title">待办事项</div>
+                        <div class="table-title">改进事项</div>
                         <div class="table-actions">
+                            <div class="todo-filter-bar" id="todoFilterBar">
+                                <div class="todo-filter-group">
+                                    <label>关键词</label>
+                                    <input type="text" id="todoKeyword" placeholder="规则名/认领人/优化措施">
+                                </div>
+                                <div class="todo-filter-group">
+                                    <label>状态</label>
+                                    <select id="todoStatusFilter">
+                                        <option value="">全部</option>
+                                        <option value="未开始">未开始</option>
+                                        <option value="进行中">进行中</option>
+                                        <option value="已完成">已完成</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-primary" id="todoApplyFilter">筛选</button>
+                                <button class="btn btn-secondary" id="todoResetFilter">重置</button>
+                            </div>
                             <button class="btn btn-primary" onclick="batchMarkTodoComplete()">批量标记完成</button>
                         </div>
                     </div>
@@ -2446,7 +2537,7 @@
 
 <script>
     // 全局变量
-    let dateChart, domainSystemChart, qualityScoreTrendChart, qualityScoreDomainChart;
+    let dateChart, domainSystemChart, qualityScoreTrendChart, qualityScoreDomainChart, totalAlertRatioChart;
     let invalidRateTrendChart, invalidRateDomainChart;
     let runbookTrendChart, runbookDomainChart;
     let sceneTrendChart, sceneDomainChart;
@@ -2490,6 +2581,9 @@
     let pendingCompleteRules = []; // 待标记完成的规则列表
     let weightConfig = {}; // 存储权重配置
     let weightPieChart = null; // 权重饼图实例
+    let alertRulesData = [];
+    let alertRulesCurrentPage = 1;
+    const alertRulesPageSize = 20;
     let syncProgressTimer = null;
     let syncProgressAutoHideTimer = null;
     let syncProgressFilterType = 'manual';
@@ -2569,7 +2663,7 @@
     };
 
     const qualityDimensionMetricConfigDefaults = {
-        quality_dimensions: { metric_name: '质量维度指标', description: '构成质量分数的评分维度，每个维度的权重分数综合组成质量得分。' },
+        quality_dimensions: { metric_name: '质量维度指标', description: '构成质量分数的评分维度，计算公式：质量分 = Σ(维度达标得分)。维度达标得分 = 达标则取该维度权重，否则为0。' },
         event_count: { metric_name: '告警事件数', description: '统计周期内告警事件总数量（质量维度口径）' },
         runbook: { metric_name: '手册覆盖率', description: '具备rule_note说明的规则占比' },
         scene: { metric_name: '场景关联率', description: '具备场景标记规则占比' },
@@ -2604,7 +2698,7 @@
         });
         initDefaultConfigs();
         
-        // 初始化待办事项列表
+        // 初始化改进事项列表
         loadTodoList();
         
         // 初始化完成条件配置列表
@@ -2612,7 +2706,7 @@
         
         // 权重配置在切换到标签页时初始化，避免容器未显示导致饼图渲染失败
         
-        // 为待办事项标签页添加事件监听
+        // 为改进事项标签页添加事件监听
         document.querySelectorAll('.config-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 const tabName = this.dataset.tab;
@@ -3022,8 +3116,10 @@
         
         document.querySelectorAll('.config-tab').forEach(tab => {
             tab.addEventListener('click', function() {
-                document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.config-tab-content').forEach(c => c.classList.remove('active'));
+                const pageContainer = this.closest('.page');
+                const tabScope = pageContainer || document;
+                tabScope.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
+                tabScope.querySelectorAll('.config-tab-content').forEach(c => c.classList.remove('active'));
                 this.classList.add('active');
                 const tabId = this.getAttribute('data-tab');
                 document.getElementById('tab-' + tabId).classList.add('active');
@@ -3251,6 +3347,19 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+    }
+
+    function getRuleEditUrl(ruleId) {
+        const normalizedRuleId = String(ruleId || '').trim();
+        if (!normalizedRuleId) return '';
+        return `https://flashcat.starbucks.net/alert-rules/edit/${encodeURIComponent(normalizedRuleId)}`;
+    }
+
+    function renderRuleEditLink(ruleId, text) {
+        const safeText = escapeHtml(text || '-');
+        const editUrl = getRuleEditUrl(ruleId);
+        if (!editUrl) return safeText;
+        return `<a href="${editUrl}" class="rule-link" target="_blank" rel="noopener noreferrer">${safeText}</a>`;
     }
 
     function formatDateTime(value) {
@@ -3886,6 +3995,11 @@
         domainSystemChart = echarts.init(document.getElementById('domainSystemChart'));
         qualityScoreTrendChart = echarts.init(document.getElementById('qualityScoreTrendChart'));
         qualityScoreDomainChart = echarts.init(document.getElementById('qualityScoreDomainChart'));
+        const totalAlertRatioEl = document.getElementById('totalAlertRatioChart');
+        if (totalAlertRatioEl) {
+            totalAlertRatioChart = echarts.init(totalAlertRatioEl);
+            updateTotalAlertRatioChart(0, 0, 0);
+        }
         
         invalidRateTrendChart = echarts.init(document.getElementById('invalidRateTrendChart'));
         invalidRateDomainChart = echarts.init(document.getElementById('invalidRateDomainChart'));
@@ -3907,6 +4021,7 @@
             domainSystemChart.resize();
             qualityScoreTrendChart.resize();
             qualityScoreDomainChart.resize();
+            if (totalAlertRatioChart) totalAlertRatioChart.resize();
             invalidRateTrendChart.resize();
             invalidRateDomainChart.resize();
             runbookTrendChart.resize();
@@ -4039,6 +4154,35 @@
                 applyGovernanceFilter();
             }
         });
+
+        const todoApplyBtn = document.getElementById('todoApplyFilter');
+        const todoResetBtn = document.getElementById('todoResetFilter');
+        const todoKeywordInput = document.getElementById('todoKeyword');
+        if (todoApplyBtn) {
+            todoApplyBtn.addEventListener('click', () => loadTodoList());
+        }
+        if (todoResetBtn) {
+            todoResetBtn.addEventListener('click', resetTodoFilter);
+        }
+        if (todoKeywordInput) {
+            todoKeywordInput.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    loadTodoList();
+                }
+            });
+        }
+
+        document.querySelectorAll('#page-governance .config-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                syncGovernanceFilterVisibility();
+                if (this.dataset.tab === 'todo') {
+                    loadTodoList();
+                } else {
+                    loadAlertRules();
+                }
+            });
+        });
         
         document.getElementById('govDomainSelect').addEventListener('change', function() {
             updateGovSubDomainOptions(this.value);
@@ -4049,6 +4193,8 @@
             const domain = document.getElementById('govDomainSelect').value;
             updateGovSystemOptions(domain, this.value);
         });
+
+        syncGovernanceFilterVisibility();
     }
     
     // 更新告警治理页面子域选项
@@ -4106,6 +4252,10 @@
     
     // 应用告警治理页面筛选
     async function applyGovernanceFilter() {
+        if (getActiveGovernanceTab() === 'todo') {
+            loadTodoList();
+            return;
+        }
         await loadAlertRules();
     }
     
@@ -4118,7 +4268,7 @@
         setRecentDateRange('govStartDate', 'govEndDate', 7);
         updateGovSubDomainOptions('');
         updateGovSystemOptions('', '');
-        applyGovernanceFilter();
+        loadAlertRules();
     }
     
     // 初始化告警治理页面筛选选项
@@ -4132,6 +4282,33 @@
             option.textContent = domain;
             domainSelect.appendChild(option);
         });
+    }
+
+    function getActiveGovernanceTab() {
+        const activeTab = document.querySelector('#page-governance .config-tab.active');
+        return activeTab ? activeTab.dataset.tab : 'rules';
+    }
+
+    function syncGovernanceFilterVisibility() {
+        const governanceFilters = document.getElementById('governanceFilters');
+        const activeTab = getActiveGovernanceTab();
+        if (!governanceFilters) return;
+        governanceFilters.style.display = activeTab === 'todo' ? 'none' : 'flex';
+    }
+
+    function getTodoFilterParams() {
+        return {
+            keyword: document.getElementById('todoKeyword')?.value.trim() || '',
+            status: document.getElementById('todoStatusFilter')?.value || ''
+        };
+    }
+
+    function resetTodoFilter() {
+        const keywordInput = document.getElementById('todoKeyword');
+        const statusSelect = document.getElementById('todoStatusFilter');
+        if (keywordInput) keywordInput.value = '';
+        if (statusSelect) statusSelect.value = '';
+        loadTodoList();
     }
 
     // 初始化事件列表页面筛选器
@@ -4509,55 +4686,103 @@
             
             // 更新表头显示得分值
             updateTableHeaders();
-            
-            const tbody = document.getElementById('alertRulesBody');
-            tbody.innerHTML = '';
-            
-            data.rules.forEach(rule => {
-                const row = tbody.insertRow();
-                
-                // 计算各维度是否达标（得分等于权重值表示达标）
-                const eventCountOk = rule.event_count_score === (weightConfig.event_count?.weight || 20);
-                const sceneOk = rule.scene_score === (weightConfig.scene?.weight || 10);
-                const invalidRateOk = rule.invalid_rate_score === (weightConfig.invalid_rate?.weight || 20);
-                const escalationRateOk = rule.escalation_rate_score === (weightConfig.escalation_rate?.weight || 10);
-                const mttaRateOk = rule.mtta_rate_score === (weightConfig.mtta_rate?.weight || 10);
-                const mttrRateOk = rule.mttr_rate_score === (weightConfig.mttr_rate?.weight || 10);
-                const jitterRateOk = rule.jitter_rate_score === (weightConfig.jitter_rate?.weight || 10);
-                const hasRuleId = !!(rule.rule_id && String(rule.rule_id).trim());
-                const runbookFilled = !!(rule.has_runbook || (rule.rule_note && String(rule.rule_note).trim()));
-                const runbookLabel = runbookFilled ? '已填写' : '未填写';
-                const runbookTitle = escapeHtml(
-                    runbookFilled ? String(rule.rule_note || '').trim().replace(/\s+/g, ' ') : '未填写'
-                );
-                
-                row.innerHTML = `
-                    <td><input type="checkbox" data-rule-id="${rule.rule_id}" data-rule-name="${rule.rule_name || ''}"></td>
-                    <td>${rule.rule_name || '-'}</td>
-                    <td>${rule.system_domain || '-'}</td>
-                    <td>${rule.sub_domain || '-'}</td>
-                    <td>${rule.business_system || '-'}</td>
-                    <td><div class="score-display"><span class="score-value">${rule.quality_score || '-'}</span><span class="score-bar"><span class="score-fill" style="width: ${rule.quality_score || 0}%"></span></span></div></td>
-                    <td><span class="status-badge ${eventCountOk ? 'status-success' : 'status-danger'}">${rule.raw_event_count || 0}</span></td>
-                    <td><span class="status-badge ${invalidRateOk ? 'status-success' : 'status-danger'}">${rule.raw_invalid_rate != null ? rule.raw_invalid_rate.toFixed(1) + '%' : '-'}</span></td>
-                    <td><span class="status-badge ${escalationRateOk ? 'status-success' : 'status-danger'}">${rule.raw_escalation_rate != null ? rule.raw_escalation_rate.toFixed(1) + '%' : '-'}</span></td>
-                    <td><span class="status-badge ${mttaRateOk ? 'status-success' : 'status-danger'}">${rule.raw_mtta_rate != null ? rule.raw_mtta_rate.toFixed(1) + '%' : '-'}</span></td>
-                    <td><span class="status-badge ${mttrRateOk ? 'status-success' : 'status-danger'}">${rule.raw_mttr_rate != null ? rule.raw_mttr_rate.toFixed(1) + '%' : '-'}</span></td>
-                    <td><span class="status-badge ${jitterRateOk ? 'status-success' : 'status-danger'}">${rule.raw_jitter_rate != null ? rule.raw_jitter_rate.toFixed(1) + '%' : '-'}</span></td>
-                    <td><span class="status-badge ${sceneOk ? 'status-success' : 'status-danger'}">${rule.has_scene ? '已关联' : '未关联'}</span></td>
-                    <td><span class="status-badge ${runbookFilled ? 'status-success' : 'status-danger'}" title="${runbookTitle}">${runbookLabel}</span></td>
-                    <td>
-                        ${hasRuleId
-                            ? `<button class="btn btn-primary" onclick="showRuleProfile('${rule.rule_id}')">画像</button>`
-                            : '<button class="btn btn-secondary" disabled>无规则ID</button>'}
-                        <button class="btn btn-secondary" onclick="showClaimModal('${rule.rule_id}', '${rule.rule_name || ''}')">认领</button>
-                        <button class="btn btn-secondary" onclick="refreshSingleScore('${rule.rule_id}')">刷新</button>
-                    </td>
-                `;
-            });
+            alertRulesData = Array.isArray(data.rules) ? data.rules : [];
+            alertRulesCurrentPage = 1;
+            renderAlertRulesTable();
         } catch (error) {
             console.error('加载告警规则失败:', error);
         }
+    }
+
+    function renderAlertRulesTable() {
+        const tbody = document.getElementById('alertRulesBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        const safeData = Array.isArray(alertRulesData) ? alertRulesData : [];
+        const startIndex = (alertRulesCurrentPage - 1) * alertRulesPageSize;
+        const endIndex = startIndex + alertRulesPageSize;
+        const pageData = safeData.slice(startIndex, endIndex);
+
+        pageData.forEach(rule => {
+            const row = tbody.insertRow();
+
+            // 计算各维度是否达标（得分等于权重值表示达标）
+            const eventCountOk = rule.event_count_score === (weightConfig.event_count?.weight || 20);
+            const sceneOk = rule.scene_score === (weightConfig.scene?.weight || 10);
+            const invalidRateOk = rule.invalid_rate_score === (weightConfig.invalid_rate?.weight || 20);
+            const escalationRateOk = rule.escalation_rate_score === (weightConfig.escalation_rate?.weight || 10);
+            const mttaRateOk = rule.mtta_rate_score === (weightConfig.mtta_rate?.weight || 10);
+            const mttrRateOk = rule.mttr_rate_score === (weightConfig.mttr_rate?.weight || 10);
+            const jitterRateOk = rule.jitter_rate_score === (weightConfig.jitter_rate?.weight || 10);
+            const hasRuleId = !!(rule.rule_id && String(rule.rule_id).trim());
+            const runbookFilled = !!(rule.has_runbook || (rule.rule_note && String(rule.rule_note).trim()));
+            const runbookLabel = runbookFilled ? '已填写' : '未填写';
+            const runbookTitle = escapeHtml(
+                runbookFilled ? String(rule.rule_note || '').trim().replace(/\s+/g, ' ') : '未填写'
+            );
+            const ruleNameHtml = renderRuleEditLink(rule.rule_id, rule.rule_name || '-');
+
+            row.innerHTML = `
+                <td><input type="checkbox" data-rule-id="${rule.rule_id}" data-rule-name="${rule.rule_name || ''}"></td>
+                <td>${ruleNameHtml}</td>
+                <td>${rule.system_domain || '-'}</td>
+                <td>${rule.sub_domain || '-'}</td>
+                <td>${rule.business_system || '-'}</td>
+                <td><div class="score-display"><span class="score-value">${rule.quality_score || '-'}</span><span class="score-bar"><span class="score-fill" style="width: ${rule.quality_score || 0}%"></span></span></div></td>
+                <td><span class="status-badge ${eventCountOk ? 'status-success' : 'status-danger'}">${rule.raw_event_count || 0}</span></td>
+                <td><span class="status-badge ${invalidRateOk ? 'status-success' : 'status-danger'}">${rule.raw_invalid_rate != null ? rule.raw_invalid_rate.toFixed(1) + '%' : '-'}</span></td>
+                <td><span class="status-badge ${escalationRateOk ? 'status-success' : 'status-danger'}">${rule.raw_escalation_rate != null ? rule.raw_escalation_rate.toFixed(1) + '%' : '-'}</span></td>
+                <td><span class="status-badge ${mttaRateOk ? 'status-success' : 'status-danger'}">${rule.raw_mtta_rate != null ? rule.raw_mtta_rate.toFixed(1) + '%' : '-'}</span></td>
+                <td><span class="status-badge ${mttrRateOk ? 'status-success' : 'status-danger'}">${rule.raw_mttr_rate != null ? rule.raw_mttr_rate.toFixed(1) + '%' : '-'}</span></td>
+                <td><span class="status-badge ${jitterRateOk ? 'status-success' : 'status-danger'}">${rule.raw_jitter_rate != null ? rule.raw_jitter_rate.toFixed(1) + '%' : '-'}</span></td>
+                <td><span class="status-badge ${sceneOk ? 'status-success' : 'status-danger'}">${rule.has_scene ? '已关联' : '未关联'}</span></td>
+                <td><span class="status-badge ${runbookFilled ? 'status-success' : 'status-danger'}" title="${runbookTitle}">${runbookLabel}</span></td>
+                <td>
+                    ${hasRuleId
+                        ? `<button class="btn btn-primary" onclick="showRuleProfile('${rule.rule_id}')">画像</button>`
+                        : '<button class="btn btn-secondary" disabled>无规则ID</button>'}
+                    <button class="btn btn-secondary" onclick="showClaimModal('${rule.rule_id}', '${rule.rule_name || ''}')">认领</button>
+                    <button class="btn btn-secondary" onclick="refreshSingleScore('${rule.rule_id}')">刷新</button>
+                </td>
+            `;
+        });
+
+        updateAlertRulesPagination();
+    }
+
+    function updateAlertRulesPagination() {
+        const paginationEl = document.getElementById('alertRulesPagination');
+        const pageInfoEl = document.getElementById('alertRulesPageInfo');
+        const prevBtn = document.getElementById('alertRulesPrevBtn');
+        const nextBtn = document.getElementById('alertRulesNextBtn');
+        if (!paginationEl || !pageInfoEl || !prevBtn || !nextBtn) return;
+
+        const safeData = Array.isArray(alertRulesData) ? alertRulesData : [];
+        const totalPages = Math.ceil(safeData.length / alertRulesPageSize);
+        if (totalPages <= 1) {
+            paginationEl.style.display = 'none';
+            return;
+        }
+
+        paginationEl.style.display = 'flex';
+        pageInfoEl.textContent = `第 ${alertRulesCurrentPage} / ${totalPages} 页 (共 ${safeData.length} 条)`;
+        prevBtn.disabled = alertRulesCurrentPage <= 1;
+        nextBtn.disabled = alertRulesCurrentPage >= totalPages;
+    }
+
+    function alertRulesPrevPage() {
+        if (alertRulesCurrentPage <= 1) return;
+        alertRulesCurrentPage -= 1;
+        renderAlertRulesTable();
+    }
+
+    function alertRulesNextPage() {
+        const safeData = Array.isArray(alertRulesData) ? alertRulesData : [];
+        const totalPages = Math.ceil(safeData.length / alertRulesPageSize);
+        if (alertRulesCurrentPage >= totalPages) return;
+        alertRulesCurrentPage += 1;
+        renderAlertRulesTable();
     }
 
     // 刷新单个规则的质量得分
@@ -5021,7 +5246,7 @@
             // 保存到本地存储
             localStorage.setItem('claimedRules', JSON.stringify(claimedRules));
             
-            // 更新待办事项列表
+            // 更新改进事项列表
             loadTodoList();
             
             // 从表格中移除已认领的规则
@@ -5646,7 +5871,13 @@
         }
     }
 
-    // 加载待办事项列表
+    function getTodoStatusBadgeClass(status) {
+        if (status === '已完成') return 'todo-status-completed';
+        if (status === '进行中') return 'todo-status-in-progress';
+        return 'todo-status-not-started';
+    }
+
+    // 加载改进事项列表
     function loadTodoList() {
         // 从本地存储加载
         const savedClaims = localStorage.getItem('claimedRules');
@@ -5654,11 +5885,27 @@
             claimedRules = JSON.parse(savedClaims);
         }
         
+        const filters = getTodoFilterParams();
         const tbody = document.getElementById('todoBody');
         tbody.innerHTML = '';
         
-        Object.values(claimedRules).forEach(rule => {
-            const statusClass = rule.status === '已完成' ? 'badge-success' : (rule.status === '进行中' ? 'badge-warning' : 'badge-danger');
+        Object.values(claimedRules)
+            .filter(rule => {
+                const status = rule.status || '未开始';
+                if (filters.status && status !== filters.status) return false;
+                if (!filters.keyword) return true;
+                const keyword = filters.keyword.toLowerCase();
+                const fields = [
+                    rule.rule_name,
+                    rule.owner,
+                    rule.improvement_measures,
+                    status
+                ];
+                return fields.some(field => String(field || '').toLowerCase().includes(keyword));
+            })
+            .forEach(rule => {
+            const status = rule.status || '未开始';
+            const statusClass = getTodoStatusBadgeClass(status);
             const row = tbody.insertRow();
             row.innerHTML = `
                 <td><input type="checkbox" data-rule-id="${rule.rule_id}"></td>
@@ -5668,7 +5915,7 @@
                 <td>${new Date(rule.claimed_at).toLocaleString()}</td>
                 <td>${rule.improvement_measures || '-'}</td>
                 <td>${rule.expected_completion_time || '-'}</td>
-                <td><span class="badge ${statusClass}">${rule.status || '未开始'}</span></td>
+                <td><span class="todo-status-badge ${statusClass}">${status}</span></td>
                 <td>
                     <button class="btn btn-primary" onclick="editImprovementMeasures('${rule.rule_id}')">编辑措施</button>
                     <button class="btn btn-secondary" onclick="showRuleProfile('${rule.rule_id}')">画像</button>
@@ -5678,7 +5925,7 @@
         });
     }
     
-    // 待办事项全选/取消全选
+    // 改进事项全选/取消全选
     function toggleSelectAllTodo() {
         const selectAll = document.getElementById('selectAllTodo');
         const checkboxes = document.querySelectorAll('#todoBody input[type="checkbox"]');
@@ -5687,11 +5934,11 @@
         });
     }
     
-    // 批量标记待办事项为完成
+    // 批量标记改进事项为完成
     async function batchMarkTodoComplete() {
         const checkboxes = document.querySelectorAll('#todoBody input[type="checkbox"]:checked');
         if (checkboxes.length === 0) {
-            showToast('请先选择要标记完成的待办事项', 'warning');
+            showToast('请先选择要标记完成的改进事项', 'warning');
             return;
         }
         
@@ -5705,7 +5952,7 @@
         });
         
         if (pendingCompleteRules.length === 0) {
-            showToast('所选待办事项均未被认领，无法标记完成', 'warning');
+            showToast('所选改进事项均未被认领，无法标记完成', 'warning');
             return;
         }
         
@@ -5713,7 +5960,7 @@
         await checkCompletionConditions();
     }
     
-    // 单个待办事项标记完成
+    // 单个改进事项标记完成
     async function markTodoComplete(ruleId) {
         if (!claimedRules[ruleId]) {
             showToast('该规则未被认领', 'warning');
@@ -5769,7 +6016,7 @@
         // 关闭模态窗口
         closeImprovementModal();
         
-        // 更新待办事项列表
+        // 更新改进事项列表
         loadTodoList();
         
         showToast('保存成功');
@@ -6389,10 +6636,7 @@
             .slice(0, limit);
     }
 
-    function applyFallbackDimensionMetrics(incidents = [], filters = {}) {
-        const total = incidents.length;
-
-        // 夜间/变更期间
+    function calculateNightAndChangeCounts(incidents = []) {
         const nightCount = incidents.filter(inc => {
             const hourTag = String(inc.hours || '').trim().toLowerCase();
             return ['sleep', 'off', 'night', 'nighttime', '夜间'].includes(hourTag);
@@ -6401,10 +6645,68 @@
             const hourTag = String(inc.hours || '').trim().toLowerCase();
             return ['work', 'change', 'change_window', '变更', '变更期间'].includes(hourTag);
         }).length;
+        return { nightCount, changeCount };
+    }
+
+    function updateTotalAlertRatioChart(totalCount, nightCount, changeCount) {
+        if (!totalAlertRatioChart) return;
+        const total = Number(totalCount || 0);
+        const night = Number(nightCount || 0);
+        const change = Number(changeCount || 0);
+        const day = Math.max(total - night - change, 0);
+        const sum = night + change + day;
+
+        totalAlertRatioChart.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter: (params) => {
+                    const percent = sum > 0 ? ((Number(params.value || 0) / sum) * 100).toFixed(1) : '0.0';
+                    return `${params.name}: ${params.value}（${percent}%）`;
+                }
+            },
+            series: [{
+                type: 'pie',
+                radius: ['56%', '78%'],
+                center: ['50%', '50%'],
+                label: { show: false },
+                labelLine: { show: false },
+                silent: true,
+                data: [
+                    { name: '夜间', value: night, itemStyle: { color: '#0ea5e9' } },
+                    { name: '变更期间', value: change, itemStyle: { color: '#f59e0b' } },
+                    { name: '白天', value: day, itemStyle: { color: '#22c55e' } }
+                ]
+            }]
+        });
+    }
+
+    function updateNightAndChangeCounts(nightCount, changeCount, totalCount) {
         const nightEl = document.getElementById('nightCount');
         const changeEl = document.getElementById('changeCount');
-        if (nightEl) nightEl.textContent = nightCount;
-        if (changeEl) changeEl.textContent = changeCount;
+        if (nightEl) nightEl.textContent = Number(nightCount || 0);
+        if (changeEl) changeEl.textContent = Number(changeCount || 0);
+        updateTotalAlertRatioChart(totalCount, nightCount, changeCount);
+    }
+
+    function formatRangeLabelText(startDate, endDate) {
+        const start = String(startDate || '').trim();
+        const end = String(endDate || '').trim();
+        if (start && end) return `（${start} ~ ${end}）`;
+        if (start) return `（${start} 起）`;
+        if (end) return `（至 ${end}）`;
+        return '（全部时间）';
+    }
+
+    function updateTopAlertsRangeLabel(filters = {}) {
+        const labelEl = document.getElementById('topAlertsRangeLabel');
+        if (!labelEl) return;
+        labelEl.textContent = formatRangeLabelText(filters.startDate, filters.endDate);
+    }
+
+    function applyFallbackDimensionMetrics(incidents = [], filters = {}) {
+        const total = incidents.length;
+        const { nightCount, changeCount } = calculateNightAndChangeCounts(incidents);
+        updateNightAndChangeCounts(nightCount, changeCount, total);
 
         // 手册覆盖率/场景关联率：按规则去重
         const ruleMap = new Map();
@@ -6505,6 +6807,7 @@
     async function fetchTopAlerts(filters = {}) {
         const loadingEl = document.getElementById('topAlertsLoading');
         const tableEl = document.getElementById('topAlertsTable');
+        updateTopAlertsRangeLabel(filters);
         try {
             let url = '/api/incidents/top-alerts';
             const params = new URLSearchParams();
@@ -6626,8 +6929,8 @@
                 throw new Error('new-metrics返回异常');
             }
             
-            document.getElementById('nightCount').textContent = data.night_count || 0;
-            document.getElementById('changeCount').textContent = data.change_count || 0;
+            const totalCount = Number(document.getElementById('totalCount')?.textContent || (currentIncidents || []).length || 0);
+            updateNightAndChangeCounts(data.night_count || 0, data.change_count || 0, totalCount);
             
             // 更新质量维度指标
             const dimInvalidRate = document.getElementById('dim_invalid_rate');
@@ -6786,6 +7089,7 @@
             const weightEl = document.getElementById(`weight_${key}`);
             if (weightEl) {
                 weightEl.textContent = config[key].weight + '%';
+                weightEl.title = '权重';
             }
         });
     }
@@ -6946,11 +7250,15 @@
 
     // 更新统计数据
     async function updateStats(incidents) {
-        document.getElementById('totalCount').textContent = incidents.length;
+        const totalCount = incidents.length;
+        document.getElementById('totalCount').textContent = totalCount;
         document.getElementById('warningCount').textContent = incidents.filter(i => normalizeSeverityLabel(i.severity) === 'S2').length;
         document.getElementById('infoCount').textContent = incidents.filter(i => normalizeSeverityLabel(i.severity) === 'S3').length;
         document.getElementById('criticalCount').textContent = incidents.filter(i => normalizeSeverityLabel(i.severity) === 'S1').length;
         document.getElementById('unclosedCount').textContent = incidents.filter(i => i.progress !== 'Closed').length;
+
+        const { nightCount, changeCount } = calculateNightAndChangeCounts(incidents);
+        updateNightAndChangeCounts(nightCount, changeCount, totalCount);
         
         // 计算告警重复率：按告警名称去重后的数量/总数
         const uniqueTitles = new Set(incidents.map(i => i.title).filter(t => t));
@@ -7183,9 +7491,9 @@
         const avgMttr = closeValues.length > 0 ? (closeValues.reduce((a, b) => a + b, 0) / closeValues.length / 60).toFixed(1) : '-';
         
         document.getElementById('mttaValue').textContent = medianMtta;
-        document.getElementById('mttaSub').textContent = `中位数: ${medianMtta} / 平均: ${avgMtta}`;
+        document.getElementById('mttaSub').textContent = `中位数${medianMtta}、平均：${avgMtta}`;
         document.getElementById('mttrValue').textContent = medianMttr;
-        document.getElementById('mttrSub').textContent = `中位数: ${medianMttr} / 平均: ${avgMttr}`;
+        document.getElementById('mttrSub').textContent = `中位数${medianMttr}、平均：${avgMttr}`;
         
         const mttaRate = calculateMttaRate(incidents);
         const mttrRate = calculateMttrRate(incidents);
@@ -7491,15 +7799,19 @@
         chart.setOption(option);
     }
 
-    function renderIncidentRows(tbody, incidents, editable = true) {
+    function renderIncidentRows(tbody, incidents, editable = true, options = {}) {
         if (!tbody) return;
         tbody.innerHTML = '';
+        const linkTitle = !!options.linkTitle;
 
         incidents.forEach(inc => {
             const row = tbody.insertRow();
             const normalizedSeverity = normalizeSeverityLabel(inc.severity);
             const severityClass = normalizedSeverity === 'S1' ? 'badge-r' :
                                   normalizedSeverity === 'S2' ? 'badge-y' : 'badge-b';
+            const titleHtml = linkTitle
+                ? renderRuleEditLink(inc.rule_id, inc.title || '-')
+                : escapeHtml(inc.title || '-');
 
             const domainCellClass = editable ? ' class="editable" data-field="system_domain" data-id="' + (inc.id || '') + '"' : '';
             const subDomainCellClass = editable ? ' class="editable" data-field="sub_domain" data-id="' + (inc.id || '') + '"' : '';
@@ -7511,7 +7823,7 @@
             row.innerHTML = `
                 <td>${inc.id || '-'}</td>
                 <td>${inc.incident_id || '-'}</td>
-                <td>${inc.title || '-'}</td>
+                <td>${titleHtml}</td>
                 <td>${inc.rule_id || '-'}</td>
                 <td>${inc.rule_name || '-'}</td>
                 <td><span class="badge ${severityClass}">${normalizedSeverity || '-'}</span></td>
@@ -7553,7 +7865,7 @@
 
         if (loadingEl) loadingEl.style.display = 'none';
         if (tableEl) tableEl.style.display = 'table';
-        renderIncidentRows(tbody, incidents, true);
+        renderIncidentRows(tbody, incidents, true, { linkTitle: true });
         initEditableCells();
     }
     

@@ -81,7 +81,7 @@ LEGACY_SCORE_THRESHOLD_DEFAULTS = {
 }
 DEFAULT_METRIC_CONFIGS = [
     {'metric_key': 'total_count', 'metric_name': '总事件数', 'description': '统计周期内告警事件总数量'},
-    {'metric_key': 'quality_dimensions', 'metric_name': '质量维度指标', 'description': '构成质量分数的评分维度，每个维度的权重分数综合组成质量得分。'},
+    {'metric_key': 'quality_dimensions', 'metric_name': '质量维度指标', 'description': '构成质量分数的评分维度，计算公式：质量分 = Σ(维度达标得分)。维度达标得分 = 达标则取该维度权重，否则为0。'},
     {'metric_key': 'event_count', 'metric_name': '告警事件数', 'description': '统计周期内告警事件总数量（质量维度口径）'},
     {'metric_key': 'critical_count', 'metric_name': 'S1', 'description': '严重级别S1事件数量'},
     {'metric_key': 'warning_count', 'metric_name': 'S2', 'description': '严重级别S2事件数量'},
@@ -406,6 +406,10 @@ def ensure_default_metric_configs():
                     changed = True
             if exists.metric_key == 'runbook':
                 if not exists.description or 'rule_note' not in exists.description:
+                    exists.description = item['description']
+                    changed = True
+            if exists.metric_key == 'quality_dimensions':
+                if (not exists.description) or ('构成质量分数的评分维度，每个维度的权重分数综合组成质量得分' in exists.description):
                     exists.description = item['description']
                     changed = True
             continue

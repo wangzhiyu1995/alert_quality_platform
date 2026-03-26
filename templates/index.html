@@ -209,7 +209,8 @@
             max-width:calc(25% - 10px) !important;
             flex-direction:column;
             align-items:flex-start;
-            gap:8px;
+            gap:3px;
+            padding:9px 14px;
         }
         .stat-combined .stat-ico{
             position:absolute;
@@ -219,20 +220,20 @@
             height:28px;
         }
         .stat-main{flex:1}
-        .stat-val-large{font-size:32px;font-weight:700;letter-spacing:-.03em;line-height:1;color:var(--tx1)}
+        .stat-val-large{font-size:28px;font-weight:700;letter-spacing:-.03em;line-height:1;color:var(--tx1)}
         .stat-sub-items{
             display:grid;
-            grid-template-columns:1fr;
-            gap:6px;
-            padding-top:8px;
+            grid-template-columns:repeat(3,minmax(0,1fr));
+            gap:4px 8px;
+            padding-top:4px;
             border-top:1px dashed var(--sand3);
-            width:50%;
-            flex:0 0 50%;
+            width:56%;
+            flex:0 0 56%;
         }
         .stat-sub-item{
             display:flex;
             flex-direction:column;
-            gap:2px;
+            gap:1px;
         }
         .stat-sub-label-row{display:flex;align-items:center;gap:6px}
         .stat-sub-dot{
@@ -245,12 +246,12 @@
         .stat-sub-dot.day{background:#5470C6}
         .stat-sub-dot.night{background:#91CC75}
         .stat-sub-dot.change{background:#FAC858}
-        .stat-sub-label{font-size:10px;color:var(--tx3)}
-        .stat-sub-value{font-size:14px;font-weight:600;color:var(--tx1)}
+        .stat-sub-label{font-size:9px;color:var(--tx3)}
+        .stat-sub-value{font-size:13px;font-weight:600;color:var(--tx1)}
         .stat-combined-bottom{
             width:100%;
             display:flex;
-            align-items:stretch;
+            align-items:center;
             gap:0;
         }
         .stat-mini-pie-wrap{
@@ -258,16 +259,16 @@
             flex-direction:column;
             align-items:center;
             justify-content:center;
-            gap:4px;
-            width:50%;
-            flex:0 0 50%;
+            gap:2px;
+            width:44%;
+            flex:0 0 44%;
             flex-shrink:0;
             border-left:1px dashed var(--sand3);
-            padding-left:10px;
+            padding-left:8px;
         }
-        .stat-mini-pie{width:148px;height:122px}
+        .stat-mini-pie{width:120px;height:92px}
         .stat-mini-pie-label{
-            font-size:9px;
+            font-size:8px;
             color:var(--tx3);
             line-height:1;
             white-space:nowrap;
@@ -275,8 +276,8 @@
         .stat-mini-legend{
             display:flex;
             align-items:center;
-            gap:8px;
-            font-size:9px;
+            gap:6px;
+            font-size:8.5px;
             color:var(--tx3);
             white-space:nowrap;
         }
@@ -1051,15 +1052,15 @@
                     <div class="stat-combined-bottom">
                         <div class="stat-sub-items">
                             <div class="stat-sub-item">
-                                <span class="stat-sub-label-row"><span class="stat-sub-dot day"></span><span class="stat-sub-label">白天</span></span>
+                                <span class="stat-sub-label-row"><span class="stat-sub-dot day"></span><span class="stat-sub-label">白天<span class="metric-desc-icon" data-metric="day_count">ⓘ</span></span></span>
                                 <span class="stat-sub-value" id="dayCount">-</span>
                             </div>
                             <div class="stat-sub-item">
-                                <span class="stat-sub-label-row"><span class="stat-sub-dot night"></span><span class="stat-sub-label">夜间<span class="metric-desc-icon" data-metric="night_count">！</span></span></span>
+                                <span class="stat-sub-label-row"><span class="stat-sub-dot night"></span><span class="stat-sub-label">夜间<span class="metric-desc-icon" data-metric="night_count">ⓘ</span></span></span>
                                 <span class="stat-sub-value" id="nightCount">-</span>
                             </div>
                             <div class="stat-sub-item">
-                                <span class="stat-sub-label-row"><span class="stat-sub-dot change"></span><span class="stat-sub-label">变更期间<span class="metric-desc-icon" data-metric="change_count">！</span></span></span>
+                                <span class="stat-sub-label-row"><span class="stat-sub-dot change"></span><span class="stat-sub-label">变更期间<span class="metric-desc-icon" data-metric="change_count">ⓘ</span></span></span>
                                 <span class="stat-sub-value" id="changeCount">-</span>
                             </div>
                         </div>
@@ -1070,7 +1071,6 @@
                                 <span><span class="stat-sub-dot night"></span>夜间</span>
                                 <span><span class="stat-sub-dot change"></span>变更</span>
                             </div>
-                            <div class="stat-mini-pie-label">悬停查看数量与占比</div>
                         </div>
                     </div>
                 </div>

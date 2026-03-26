@@ -1567,35 +1567,6 @@
                 <p class="ph-desc">管理告警规则，优化告警策略，提升告警质量</p>
             </div>
 
-            <div class="filters" id="governanceFilters">
-                <div class="filter-group">
-                    <label>业务域</label>
-                    <select id="govDomainSelect"><option value="">全部</option></select>
-                </div>
-                <div class="filter-group">
-                    <label>业务子域</label>
-                    <select id="govSubDomainSelect"><option value="">全部</option></select>
-                </div>
-                <div class="filter-group">
-                    <label>业务系统</label>
-                    <select id="govSystemSelect"><option value="">全部</option></select>
-                </div>
-                <div class="filter-group">
-                    <label>关键词搜索</label>
-                    <input type="text" id="govKeyword" placeholder="规则名/规则ID/业务域/子域/系统">
-                </div>
-                <div class="filter-group">
-                    <label>开始日期</label>
-                    <input type="date" id="govStartDate" value="2026-02-15">
-                </div>
-                <div class="filter-group">
-                    <label>结束日期</label>
-                    <input type="date" id="govEndDate" value="2026-02-22">
-                </div>
-                <button class="btn btn-primary" id="govApplyFilter">应用筛选</button>
-                <button class="btn btn-secondary" id="govResetFilter">重置</button>
-            </div>
-
             <div class="config-tabs">
                 <div class="config-tab active" data-tab="rules">告警规则质量得分</div>
                 <div class="config-tab" data-tab="todo">改进事项</div>
@@ -1603,6 +1574,34 @@
 
             <!-- 告警规则质量得分Tab -->
             <div class="config-tab-content active" id="tab-rules">
+                <div class="filters" id="governanceFilters">
+                    <div class="filter-group">
+                        <label>业务域</label>
+                        <select id="govDomainSelect"><option value="">全部</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label>业务子域</label>
+                        <select id="govSubDomainSelect"><option value="">全部</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label>业务系统</label>
+                        <select id="govSystemSelect"><option value="">全部</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label>关键词搜索</label>
+                        <input type="text" id="govKeyword" placeholder="规则名/规则ID/业务域/子域/系统">
+                    </div>
+                    <div class="filter-group">
+                        <label>开始日期</label>
+                        <input type="date" id="govStartDate" value="2026-02-15">
+                    </div>
+                    <div class="filter-group">
+                        <label>结束日期</label>
+                        <input type="date" id="govEndDate" value="2026-02-22">
+                    </div>
+                    <button class="btn btn-primary" id="govApplyFilter">应用筛选</button>
+                    <button class="btn btn-secondary" id="govResetFilter">重置</button>
+                </div>
                 <div class="table-card">
                     <div class="table-header">
                         <div class="table-title">告警规则质量得分</div>
@@ -1652,27 +1651,27 @@
 
             <!-- 改进事项Tab -->
             <div class="config-tab-content" id="tab-todo">
+                <div class="filters" id="todoFilters">
+                    <div class="filter-group">
+                        <label>关键词</label>
+                        <input type="text" id="todoKeyword" placeholder="规则名/认领人/优化措施">
+                    </div>
+                    <div class="filter-group">
+                        <label>状态</label>
+                        <select id="todoStatusFilter">
+                            <option value="">全部</option>
+                            <option value="未开始">未开始</option>
+                            <option value="进行中">进行中</option>
+                            <option value="已完成">已完成</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="todoApplyFilter">筛选</button>
+                    <button class="btn btn-secondary" id="todoResetFilter">重置</button>
+                </div>
                 <div class="table-card">
                     <div class="table-header">
                         <div class="table-title">改进事项</div>
                         <div class="table-actions">
-                            <div class="todo-filter-bar" id="todoFilterBar">
-                                <div class="todo-filter-group">
-                                    <label>关键词</label>
-                                    <input type="text" id="todoKeyword" placeholder="规则名/认领人/优化措施">
-                                </div>
-                                <div class="todo-filter-group">
-                                    <label>状态</label>
-                                    <select id="todoStatusFilter">
-                                        <option value="">全部</option>
-                                        <option value="未开始">未开始</option>
-                                        <option value="进行中">进行中</option>
-                                        <option value="已完成">已完成</option>
-                                    </select>
-                                </div>
-                                <button class="btn btn-primary" id="todoApplyFilter">筛选</button>
-                                <button class="btn btn-secondary" id="todoResetFilter">重置</button>
-                            </div>
                             <button class="btn btn-primary" onclick="batchMarkTodoComplete()">批量标记完成</button>
                         </div>
                     </div>
@@ -4206,7 +4205,6 @@
 
         document.querySelectorAll('#page-governance .config-tab').forEach(tab => {
             tab.addEventListener('click', function() {
-                syncGovernanceFilterVisibility();
                 if (this.dataset.tab === 'todo') {
                     loadTodoList();
                 } else {
@@ -4224,8 +4222,6 @@
             const domain = document.getElementById('govDomainSelect').value;
             updateGovSystemOptions(domain, this.value);
         });
-
-        syncGovernanceFilterVisibility();
     }
     
     // 更新告警治理页面子域选项
@@ -4318,13 +4314,6 @@
     function getActiveGovernanceTab() {
         const activeTab = document.querySelector('#page-governance .config-tab.active');
         return activeTab ? activeTab.dataset.tab : 'rules';
-    }
-
-    function syncGovernanceFilterVisibility() {
-        const governanceFilters = document.getElementById('governanceFilters');
-        const activeTab = getActiveGovernanceTab();
-        if (!governanceFilters) return;
-        governanceFilters.style.display = activeTab === 'todo' ? 'none' : 'flex';
     }
 
     function getTodoFilterParams() {

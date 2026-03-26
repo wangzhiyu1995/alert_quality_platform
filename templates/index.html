@@ -221,39 +221,63 @@
         .stat-main{flex:1}
         .stat-val-large{font-size:32px;font-weight:700;letter-spacing:-.03em;line-height:1;color:var(--tx1)}
         .stat-sub-items{
-            display:flex;
-            gap:16px;
+            display:grid;
+            grid-template-columns:1fr;
+            gap:6px;
             padding-top:8px;
             border-top:1px dashed var(--sand3);
-            width:auto;
-            flex:1;
+            width:50%;
+            flex:0 0 50%;
         }
         .stat-sub-item{
             display:flex;
             flex-direction:column;
             gap:2px;
         }
+        .stat-sub-label-row{display:flex;align-items:center;gap:6px}
+        .stat-sub-dot{
+            width:8px;
+            height:8px;
+            border-radius:50%;
+            display:inline-block;
+            flex-shrink:0;
+        }
+        .stat-sub-dot.day{background:#5470C6}
+        .stat-sub-dot.night{background:#91CC75}
+        .stat-sub-dot.change{background:#FAC858}
         .stat-sub-label{font-size:10px;color:var(--tx3)}
         .stat-sub-value{font-size:14px;font-weight:600;color:var(--tx1)}
         .stat-combined-bottom{
             width:100%;
             display:flex;
-            align-items:center;
-            gap:10px;
+            align-items:stretch;
+            gap:0;
         }
         .stat-mini-pie-wrap{
             display:flex;
             flex-direction:column;
             align-items:center;
-            gap:2px;
-            width:84px;
+            justify-content:center;
+            gap:4px;
+            width:50%;
+            flex:0 0 50%;
             flex-shrink:0;
+            border-left:1px dashed var(--sand3);
+            padding-left:10px;
         }
-        .stat-mini-pie{width:76px;height:76px}
+        .stat-mini-pie{width:148px;height:122px}
         .stat-mini-pie-label{
             font-size:9px;
             color:var(--tx3);
             line-height:1;
+            white-space:nowrap;
+        }
+        .stat-mini-legend{
+            display:flex;
+            align-items:center;
+            gap:8px;
+            font-size:9px;
+            color:var(--tx3);
             white-space:nowrap;
         }
 
@@ -1020,16 +1044,6 @@
 
             <div class="stats" id="stats">
                 <div class="stat stat-combined">
-                    <button class="stat-trend-btn" onclick="showMetricTrend('total_count', '总告警数')" title="查看趋势">
-                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 17l4-8 4 4 4-8 2 4" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </button>
-                    <div class="stat-ico ico-g">
-                        <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 10h3l2-6 3 12 2-6h4" stroke-linecap="round"/>
-                        </svg>
-                    </div>
                     <div class="stat-main">
                         <div class="stat-val-large" id="totalCount">-</div>
                         <div class="stat-lbl">总告警数<span class="metric-desc-icon" data-metric="total_count">ⓘ</span></div>
@@ -1037,17 +1051,26 @@
                     <div class="stat-combined-bottom">
                         <div class="stat-sub-items">
                             <div class="stat-sub-item">
-                                <span class="stat-sub-label">夜间<span class="metric-desc-icon" data-metric="night_count">！</span></span>
+                                <span class="stat-sub-label-row"><span class="stat-sub-dot day"></span><span class="stat-sub-label">白天</span></span>
+                                <span class="stat-sub-value" id="dayCount">-</span>
+                            </div>
+                            <div class="stat-sub-item">
+                                <span class="stat-sub-label-row"><span class="stat-sub-dot night"></span><span class="stat-sub-label">夜间<span class="metric-desc-icon" data-metric="night_count">！</span></span></span>
                                 <span class="stat-sub-value" id="nightCount">-</span>
                             </div>
                             <div class="stat-sub-item">
-                                <span class="stat-sub-label">变更期间<span class="metric-desc-icon" data-metric="change_count">！</span></span>
+                                <span class="stat-sub-label-row"><span class="stat-sub-dot change"></span><span class="stat-sub-label">变更期间<span class="metric-desc-icon" data-metric="change_count">！</span></span></span>
                                 <span class="stat-sub-value" id="changeCount">-</span>
                             </div>
                         </div>
                         <div class="stat-mini-pie-wrap">
                             <div id="totalAlertRatioChart" class="stat-mini-pie"></div>
-                            <div class="stat-mini-pie-label">夜间/变更/白天</div>
+                            <div class="stat-mini-legend">
+                                <span><span class="stat-sub-dot day"></span>白天</span>
+                                <span><span class="stat-sub-dot night"></span>夜间</span>
+                                <span><span class="stat-sub-dot change"></span>变更</span>
+                            </div>
+                            <div class="stat-mini-pie-label">悬停查看数量与占比</div>
                         </div>
                     </div>
                 </div>
@@ -6702,21 +6725,13 @@
             },
             series: [{
                 type: 'pie',
-                radius: '72%',
+                radius: '74%',
                 center: ['50%', '50%'],
                 avoidLabelOverlap: true,
                 label: {
-                    show: true,
-                    position: 'outside',
-                    fontSize: 9,
-                    formatter: '{b}'
+                    show: false
                 },
-                labelLine: {
-                    show: true,
-                    length: 6,
-                    length2: 4
-                },
-                silent: true,
+                labelLine: { show: false },
                 emphasis: {
                     itemStyle: {
                         shadowBlur: 10,
@@ -6734,8 +6749,10 @@
     }
 
     function updateDayNightChangeCounts(dayCount, nightCount, changeCount, totalCount) {
+        const dayEl = document.getElementById('dayCount');
         const nightEl = document.getElementById('nightCount');
         const changeEl = document.getElementById('changeCount');
+        if (dayEl) dayEl.textContent = Number(dayCount || 0);
         if (nightEl) nightEl.textContent = Number(nightCount || 0);
         if (changeEl) changeEl.textContent = Number(changeCount || 0);
         updateTotalAlertRatioChart(totalCount, nightCount, changeCount, dayCount);

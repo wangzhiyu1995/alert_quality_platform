@@ -455,6 +455,22 @@
         thead{background:var(--sand);border-bottom:1px solid var(--sand2)}
         th{padding:10px 14px;text-align:left;font-weight:600;color:var(--tx3);white-space:nowrap;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase}
         td{padding:10px 14px;border-bottom:1px solid var(--sand);white-space:nowrap;color:var(--tx1)}
+        .sortable-th{cursor:pointer;user-select:none}
+        .sortable-th .sort-indicator{margin-left:4px;font-size:10px;color:var(--tx3)}
+        .sortable-th.active .sort-indicator{color:var(--g600);font-weight:700}
+        .th-filter-wrap{display:flex;align-items:center;gap:6px}
+        .th-filter-select{
+            height:24px;
+            min-width:78px;
+            padding:0 20px 0 6px;
+            border:1px solid var(--sand3);
+            border-radius:4px;
+            background:#fff;
+            color:var(--tx2);
+            font-size:11px;
+            text-transform:none;
+            font-weight:500;
+        }
         tbody tr:hover{background:var(--g50)}
         tbody tr:last-child td{border-bottom:none}
         
@@ -1606,9 +1622,11 @@
                     <div class="table-header">
                         <div class="table-title">告警规则质量得分</div>
                         <div class="table-actions">
-                            <select id="qualityScoreSort" onchange="loadAlertRules()">
+                            <select id="qualityScoreSort" onchange="onAlertRulesSortSelectChange()">
                                 <option value="quality_score-desc">按质量得分降序</option>
                                 <option value="quality_score-asc">按质量得分升序</option>
+                                <option value="event_count-desc">按告警数量降序</option>
+                                <option value="event_count-asc">按告警数量升序</option>
                                 <option value="rule_name-asc">按规则名称升序</option>
                                 <option value="rule_name-desc">按规则名称降序</option>
                             </select>
@@ -1626,15 +1644,33 @@
                                     <th>业务域</th>
                                     <th>业务子域</th>
                                     <th>业务系统</th>
-                                    <th>质量得分</th>
-                                    <th id="th_event_count">事件数</th>
-                                    <th id="th_invalid_rate">无效告警率</th>
-                                    <th id="th_escalation_rate">自动升级率</th>
-                                    <th id="th_mtta_rate">MTTA达标率</th>
-                                    <th id="th_mttr_rate">MTTR达标率</th>
-                                    <th id="th_jitter_rate">告警抖动率</th>
-                                    <th id="th_scene">场景关联</th>
-                                    <th id="th_runbook">手册填写</th>
+                                    <th id="th_quality_score" class="sortable-th" onclick="toggleAlertRulesHeaderSort('quality_score')"><span id="th_quality_score_label">质量得分</span><span class="sort-indicator" id="sort_quality_score">↕</span></th>
+                                    <th id="th_event_count" class="sortable-th" onclick="toggleAlertRulesHeaderSort('raw_event_count')"><span id="th_event_count_label">事件数</span><span class="sort-indicator" id="sort_raw_event_count">↕</span></th>
+                                    <th id="th_invalid_rate" class="sortable-th" onclick="toggleAlertRulesHeaderSort('raw_invalid_rate')"><span id="th_invalid_rate_label">无效告警率</span><span class="sort-indicator" id="sort_raw_invalid_rate">↕</span></th>
+                                    <th id="th_escalation_rate" class="sortable-th" onclick="toggleAlertRulesHeaderSort('raw_escalation_rate')"><span id="th_escalation_rate_label">自动升级率</span><span class="sort-indicator" id="sort_raw_escalation_rate">↕</span></th>
+                                    <th id="th_mtta_rate" class="sortable-th" onclick="toggleAlertRulesHeaderSort('raw_mtta_rate')"><span id="th_mtta_rate_label">MTTA达标率</span><span class="sort-indicator" id="sort_raw_mtta_rate">↕</span></th>
+                                    <th id="th_mttr_rate" class="sortable-th" onclick="toggleAlertRulesHeaderSort('raw_mttr_rate')"><span id="th_mttr_rate_label">MTTR达标率</span><span class="sort-indicator" id="sort_raw_mttr_rate">↕</span></th>
+                                    <th id="th_jitter_rate" class="sortable-th" onclick="toggleAlertRulesHeaderSort('raw_jitter_rate')"><span id="th_jitter_rate_label">告警抖动率</span><span class="sort-indicator" id="sort_raw_jitter_rate">↕</span></th>
+                                    <th id="th_scene">
+                                        <div class="th-filter-wrap">
+                                            <span id="th_scene_label">场景关联</span>
+                                            <select id="sceneStatusFilter" class="th-filter-select" onchange="onAlertRulesStatusFilterChange(event)">
+                                                <option value="">全部</option>
+                                                <option value="已关联">已关联</option>
+                                                <option value="未关联">未关联</option>
+                                            </select>
+                                        </div>
+                                    </th>
+                                    <th id="th_runbook">
+                                        <div class="th-filter-wrap">
+                                            <span id="th_runbook_label">手册填写</span>
+                                            <select id="runbookStatusFilter" class="th-filter-select" onchange="onAlertRulesStatusFilterChange(event)">
+                                                <option value="">全部</option>
+                                                <option value="已填写">已填写</option>
+                                                <option value="未填写">未填写</option>
+                                            </select>
+                                        </div>
+                                    </th>
                                     <th>操作</th>
                                 </tr>
                             </thead>
@@ -2612,6 +2648,8 @@
     let weightConfig = {}; // 存储权重配置
     let weightPieChart = null; // 权重饼图实例
     let alertRulesData = [];
+    let alertRulesSortState = { key: 'quality_score', order: 'desc' };
+    let alertRulesStatusFilters = { scene: '', runbook: '' };
     let alertRulesCurrentPage = 1;
     const alertRulesPageSize = 20;
     let syncProgressTimer = null;
@@ -4292,6 +4330,12 @@
         document.getElementById('govSubDomainSelect').value = '';
         document.getElementById('govSystemSelect').value = '';
         document.getElementById('govKeyword').value = '';
+        const sceneFilterSelect = document.getElementById('sceneStatusFilter');
+        const runbookFilterSelect = document.getElementById('runbookStatusFilter');
+        if (sceneFilterSelect) sceneFilterSelect.value = '';
+        if (runbookFilterSelect) runbookFilterSelect.value = '';
+        alertRulesStatusFilters.scene = '';
+        alertRulesStatusFilters.runbook = '';
         setRecentDateRange('govStartDate', 'govEndDate', 7);
         updateGovSubDomainOptions('');
         updateGovSystemOptions('', '');
@@ -4658,20 +4702,134 @@
     // 更新表头显示得分值
     function updateTableHeaders() {
         const headers = {
-            'th_event_count': `事件数(${weightConfig.event_count?.weight || 20})`,
-            'th_invalid_rate': `无效告警率(${weightConfig.invalid_rate?.weight || 20})`,
-            'th_escalation_rate': `自动升级率(${weightConfig.escalation_rate?.weight || 10})`,
-            'th_mtta_rate': `MTTA达标率(${weightConfig.mtta_rate?.weight || 10})`,
-            'th_mttr_rate': `MTTR达标率(${weightConfig.mttr_rate?.weight || 10})`,
-            'th_jitter_rate': `告警抖动率(${weightConfig.jitter_rate?.weight || 10})`,
-            'th_scene': `场景关联(${weightConfig.scene?.weight || 10})`,
-            'th_runbook': `手册填写(${weightConfig.runbook?.weight || 10})`
+            'th_event_count_label': `事件数(${weightConfig.event_count?.weight || 20})`,
+            'th_invalid_rate_label': `无效告警率(${weightConfig.invalid_rate?.weight || 20})`,
+            'th_escalation_rate_label': `自动升级率(${weightConfig.escalation_rate?.weight || 10})`,
+            'th_mtta_rate_label': `MTTA达标率(${weightConfig.mtta_rate?.weight || 10})`,
+            'th_mttr_rate_label': `MTTR达标率(${weightConfig.mttr_rate?.weight || 10})`,
+            'th_jitter_rate_label': `告警抖动率(${weightConfig.jitter_rate?.weight || 10})`,
+            'th_scene_label': `场景关联(${weightConfig.scene?.weight || 10})`,
+            'th_runbook_label': `手册填写(${weightConfig.runbook?.weight || 10})`
         };
         
         Object.keys(headers).forEach(id => {
-            const th = document.getElementById(id);
-            if (th) th.textContent = headers[id];
+            const label = document.getElementById(id);
+            if (label) label.textContent = headers[id];
         });
+    }
+
+    function normalizeAlertRulesSortKeyFromSelect(sortBy) {
+        if (sortBy === 'event_count') return 'raw_event_count';
+        return sortBy || 'quality_score';
+    }
+
+    function normalizeAlertRulesSelectKey(sortKey) {
+        if (sortKey === 'raw_event_count') return 'event_count';
+        return sortKey;
+    }
+
+    function syncAlertRulesSortSelect() {
+        const select = document.getElementById('qualityScoreSort');
+        if (!select) return;
+        const selectValue = `${normalizeAlertRulesSelectKey(alertRulesSortState.key)}-${alertRulesSortState.order}`;
+        const exists = Array.from(select.options).some(opt => opt.value === selectValue);
+        if (exists) {
+            select.value = selectValue;
+        }
+    }
+
+    function updateAlertRulesSortIndicators() {
+        const sortableThs = document.querySelectorAll('#alertRulesTable .sortable-th');
+        sortableThs.forEach(th => th.classList.remove('active'));
+
+        const indicators = document.querySelectorAll('#alertRulesTable .sort-indicator[id^="sort_"]');
+        indicators.forEach(icon => {
+            const key = icon.id.replace('sort_', '');
+            if (key === alertRulesSortState.key) {
+                icon.textContent = alertRulesSortState.order === 'asc' ? '↑' : '↓';
+                const th = icon.closest('.sortable-th');
+                if (th) th.classList.add('active');
+            } else {
+                icon.textContent = '↕';
+            }
+        });
+    }
+
+    function compareAlertRulesBySortKey(a, b, sortKey, sortOrder) {
+        if (sortKey === 'rule_name') {
+            const av = String(a?.rule_name || '');
+            const bv = String(b?.rule_name || '');
+            return sortOrder === 'asc' ? av.localeCompare(bv, 'zh-Hans-CN') : bv.localeCompare(av, 'zh-Hans-CN');
+        }
+
+        const av = Number(a?.[sortKey]);
+        const bv = Number(b?.[sortKey]);
+        const aValid = Number.isFinite(av);
+        const bValid = Number.isFinite(bv);
+        if (!aValid && !bValid) return 0;
+        if (!aValid) return 1;
+        if (!bValid) return -1;
+        return sortOrder === 'asc' ? av - bv : bv - av;
+    }
+
+    function getAlertRulesSceneStatus(rule) {
+        return rule?.has_scene ? '已关联' : '未关联';
+    }
+
+    function getAlertRulesRunbookStatus(rule) {
+        const runbookFilled = !!(rule?.has_runbook || (rule?.rule_note && String(rule.rule_note).trim()));
+        return runbookFilled ? '已填写' : '未填写';
+    }
+
+    function getProcessedAlertRulesData() {
+        const safeData = Array.isArray(alertRulesData) ? [...alertRulesData] : [];
+        const sceneFilter = alertRulesStatusFilters.scene || '';
+        const runbookFilter = alertRulesStatusFilters.runbook || '';
+
+        const filtered = safeData.filter(rule => {
+            if (sceneFilter && getAlertRulesSceneStatus(rule) !== sceneFilter) return false;
+            if (runbookFilter && getAlertRulesRunbookStatus(rule) !== runbookFilter) return false;
+            return true;
+        });
+
+        filtered.sort((a, b) =>
+            compareAlertRulesBySortKey(a, b, alertRulesSortState.key, alertRulesSortState.order)
+        );
+        return filtered;
+    }
+
+    function onAlertRulesSortSelectChange() {
+        const select = document.getElementById('qualityScoreSort');
+        if (!select) return;
+        const [sortBy, sortOrder] = String(select.value || 'quality_score-desc').split('-');
+        alertRulesSortState = {
+            key: normalizeAlertRulesSortKeyFromSelect(sortBy),
+            order: sortOrder === 'asc' ? 'asc' : 'desc'
+        };
+        alertRulesCurrentPage = 1;
+        updateAlertRulesSortIndicators();
+        renderAlertRulesTable();
+    }
+
+    function toggleAlertRulesHeaderSort(sortKey) {
+        if (alertRulesSortState.key === sortKey) {
+            alertRulesSortState.order = alertRulesSortState.order === 'asc' ? 'desc' : 'asc';
+        } else {
+            alertRulesSortState.key = sortKey;
+            alertRulesSortState.order = 'desc';
+        }
+        alertRulesCurrentPage = 1;
+        updateAlertRulesSortIndicators();
+        syncAlertRulesSortSelect();
+        renderAlertRulesTable();
+    }
+
+    function onAlertRulesStatusFilterChange(event) {
+        if (event) event.stopPropagation();
+        alertRulesStatusFilters.scene = document.getElementById('sceneStatusFilter')?.value || '';
+        alertRulesStatusFilters.runbook = document.getElementById('runbookStatusFilter')?.value || '';
+        alertRulesCurrentPage = 1;
+        renderAlertRulesTable();
     }
 
     // 加载告警规则及其质量得分
@@ -4683,9 +4841,6 @@
             }
             
             const filters = getGovernanceFilterParams();
-            const sort = document.getElementById('qualityScoreSort').value;
-            const [sortBy, sortOrder] = sort.split('-');
-            
             let url = '/api/alert-rules';
             const params = new URLSearchParams();
             if (filters.domain) params.append('domain', filters.domain);
@@ -4694,8 +4849,6 @@
             if (filters.keyword) params.append('search', filters.keyword);
             if (filters.startDate) params.append('start_date', filters.startDate);
             if (filters.endDate) params.append('end_date', filters.endDate);
-            params.append('sort_by', sortBy);
-            params.append('sort_order', sortOrder);
             if (params.toString()) url += '?' + params.toString();
             
             const response = await fetch(url);
@@ -4707,7 +4860,9 @@
             // 更新表头显示得分值
             updateTableHeaders();
             alertRulesData = Array.isArray(data.rules) ? data.rules : [];
+            syncAlertRulesSortSelect();
             alertRulesCurrentPage = 1;
+            updateAlertRulesSortIndicators();
             renderAlertRulesTable();
         } catch (error) {
             console.error('加载告警规则失败:', error);
@@ -4719,7 +4874,7 @@
         if (!tbody) return;
         tbody.innerHTML = '';
 
-        const safeData = Array.isArray(alertRulesData) ? alertRulesData : [];
+        const safeData = getProcessedAlertRulesData();
         const startIndex = (alertRulesCurrentPage - 1) * alertRulesPageSize;
         const endIndex = startIndex + alertRulesPageSize;
         const pageData = safeData.slice(startIndex, endIndex);
@@ -4778,7 +4933,7 @@
         const nextBtn = document.getElementById('alertRulesNextBtn');
         if (!paginationEl || !pageInfoEl || !prevBtn || !nextBtn) return;
 
-        const safeData = Array.isArray(alertRulesData) ? alertRulesData : [];
+        const safeData = getProcessedAlertRulesData();
         const totalPages = Math.ceil(safeData.length / alertRulesPageSize);
         if (totalPages <= 1) {
             paginationEl.style.display = 'none';
@@ -4798,7 +4953,7 @@
     }
 
     function alertRulesNextPage() {
-        const safeData = Array.isArray(alertRulesData) ? alertRulesData : [];
+        const safeData = getProcessedAlertRulesData();
         const totalPages = Math.ceil(safeData.length / alertRulesPageSize);
         if (alertRulesCurrentPage >= totalPages) return;
         alertRulesCurrentPage += 1;
@@ -7445,7 +7600,7 @@
             
             const option = {
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-                grid: { left: '20%', right: '5%', bottom: '5%', top: '5%' },
+                grid: { left: '20%', right: '5%', bottom: '14%', top: '6%', containLabel: true },
                 xAxis: { type: 'value' },
                 yAxis: { type: 'category', data: categories, axisLabel: { fontSize: 10 } },
                 series: [{
@@ -7471,7 +7626,7 @@
             
             const option = {
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-                grid: { left: '20%', right: '5%', bottom: '5%', top: '5%' },
+                grid: { left: '20%', right: '5%', bottom: '14%', top: '6%', containLabel: true },
                 xAxis: { type: 'value' },
                 yAxis: { type: 'category', data: categories, axisLabel: { fontSize: 10 } },
                 series: [{
@@ -7732,7 +7887,7 @@
                     return `${item.name}<br/>平均得分: ${item.avg_score.toFixed(1)}<br/>规则数: ${item.rule_count}`;
                 }
             },
-            grid: { left: '20%', right: '5%', bottom: '5%', top: '5%' },
+            grid: { left: '20%', right: '5%', bottom: '14%', top: '6%', containLabel: true },
             xAxis: { type: 'value', min: 0, max: 100, axisLabel: { formatter: '{value}分' } },
             yAxis: { type: 'category', data: categories, axisLabel: { fontSize: 10 } },
             series: [{
@@ -7853,7 +8008,7 @@
         
         const option = {
             tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-            grid: { left: '20%', right: '5%', bottom: '5%', top: '5%' },
+            grid: { left: '20%', right: '5%', bottom: '14%', top: '6%', containLabel: true },
             xAxis: { type: 'value', min: 0, max: 100, axisLabel: { formatter: '{value}%' } },
             yAxis: { type: 'category', data: categories, axisLabel: { fontSize: 10 } },
             series: [{

@@ -1051,6 +1051,7 @@
                     <label>时间范围</label>
                     <select id="dateQuickRange">
                         <option value="7d">近7天</option>
+                        <option value="14d">近14天</option>
                         <option value="30d">近30天</option>
                         <option value="custom">自定义</option>
                     </select>
@@ -2677,6 +2678,8 @@
     function applyDashboardQuickRange(rangeValue) {
         if (rangeValue === '7d') {
             setDashboardDateRangeExcludingToday(7);
+        } else if (rangeValue === '14d') {
+            setDashboardDateRangeExcludingToday(14);
         } else if (rangeValue === '30d') {
             setDashboardDateRangeExcludingToday(30);
         }

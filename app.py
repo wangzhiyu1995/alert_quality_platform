@@ -60,7 +60,7 @@ DEFAULT_COMPLETION_CONDITIONS = [
     {'name': '质量得分达标', 'type': 'score_check', 'field': 'quality_score', 'value': '70', 'logic': 'AND', 'guide': '请将规则质量得分提升到70分及以上', 'status': 'enabled', 'sort_order': 3}
 ]
 DEFAULT_SCORE_THRESHOLDS = [
-    {'dimension_key': 'event_count', 'dimension_name': '告警事件数', 'weight': 20, 'threshold_type': 'le', 'threshold_value': '25*period_days', 'score_direction': 'positive', 'description': '告警事件数小于等于 25 * 统计周期天数时达标'},
+    {'dimension_key': 'event_count', 'dimension_name': '告警事件数', 'weight': 20, 'threshold_type': 'le', 'threshold_value': '1*period_days', 'score_direction': 'positive', 'description': '告警事件数小于等于 1 * 统计周期天数时达标（单规则口径）'},
     {'dimension_key': 'runbook', 'dimension_name': '手册填写', 'weight': 10, 'threshold_type': 'ge', 'threshold_value': '75', 'score_direction': 'positive', 'description': '手册填写率大于等于75%时达标'},
     {'dimension_key': 'scene', 'dimension_name': '场景关联', 'weight': 10, 'threshold_type': 'ge', 'threshold_value': '60', 'score_direction': 'positive', 'description': '场景关联率大于等于60%时达标'},
     {'dimension_key': 'invalid_rate', 'dimension_name': '无效告警率', 'weight': 20, 'threshold_type': 'le', 'threshold_value': '20', 'score_direction': 'negative', 'description': '无效告警率小于等于20%时达标'},
@@ -265,7 +265,8 @@ def ensure_default_api_configs():
         'team_ids': (json.dumps(DEFAULT_TEAM_IDS, ensure_ascii=False), '请求体team_ids(JSON数组)'),
         'channel_ids': (json.dumps(DEFAULT_CHANNEL_IDS, ensure_ascii=False), '请求体channel_ids(JSON数组)'),
         'sync_days': ('7', '默认同步最近天数'),
-        'limit': ('100', '分页条数（固定建议100）')
+        'limit': ('100', '分页条数（固定建议100）'),
+        'event_count_aggregate_threshold_per_day': ('25', '告警事件数聚合阈值（多规则口径，每天）')
     }
 
     changed = False
@@ -521,6 +522,15 @@ def ensure_default_score_thresholds():
             threshold.score_direction = item['score_direction']
             threshold.description = item['description']
             changed = True
+        elif item['dimension_key'] == 'event_count':
+            # 方案1迁移：若仍是历史“单规则=25*天数”默认值，则切换到“单规则=1*天数”
+            compact_value = current_value.replace(' ', '').lower()
+            if current_type in ['le', 'lt'] and compact_value in ['25*period_days', 'period_days*25', '25xperiod_days', 'period_daysx25']:
+                threshold.threshold_type = item['threshold_type']
+                threshold.threshold_value = item['threshold_value']
+                threshold.score_direction = item['score_direction']
+                threshold.description = item['description']
+                changed = True
         elif not threshold.description:
             threshold.description = item['description']
             changed = True
@@ -3046,6 +3056,9 @@ def update_api_config(config_id):
                 new_value = str(sync_days)
             elif config.config_key == 'limit':
                 new_value = '100'
+            elif config.config_key == 'event_count_aggregate_threshold_per_day':
+                threshold_num = max(1, _safe_int(new_value, 25))
+                new_value = str(threshold_num)
             elif config.config_key == 'api_url' and not new_value:
                 return jsonify({'error': 'api_url不能为空'}), 400
 

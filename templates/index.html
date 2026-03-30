@@ -2659,6 +2659,8 @@
     let syncProgressGuardUntil = 0;
     let syncProgressStartedAt = 0;
     let configHistoryDetails = {};
+    let apiSourceConfigMap = {};
+    let aggregateEventCountThresholdPerDay = 25;
 
     function formatDateInputValue(dateObj) {
         return dateObj.toISOString().slice(0, 10);
@@ -2732,7 +2734,7 @@
     
     // 默认权重配置
     const defaultWeightConfig = {
-        event_count: { name: '告警事件数', weight: 20, color: '#3b82f6', threshold_type: 'le', threshold_value: '25*period_days', score_direction: 'positive', description: '告警事件数小于等于 25 * 统计周期天数时达标' },
+        event_count: { name: '告警事件数', weight: 20, color: '#3b82f6', threshold_type: 'le', threshold_value: '1*period_days', score_direction: 'positive', description: '告警事件数小于等于 1 * 统计周期天数时达标（单规则口径）' },
         runbook: { name: '手册填写', weight: 10, color: '#22c55e', threshold_type: 'ge', threshold_value: '75', score_direction: 'positive', description: '手册填写率大于等于75%时达标' },
         scene: { name: '场景关联', weight: 10, color: '#f59e0b', threshold_type: 'ge', threshold_value: '60', score_direction: 'positive', description: '场景关联率大于等于60%时达标' },
         invalid_rate: { name: '无效告警率', weight: 20, color: '#ef4444', threshold_type: 'le', threshold_value: '20', score_direction: 'negative', description: '无效告警率小于等于20%时达标' },
@@ -2766,7 +2768,7 @@
     };
 
     // 页面导航
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async function() {
         initNavigation();
         initCharts();
         initFilters();
@@ -2823,6 +2825,7 @@
         setRecentDateRange('evtStartDate', 'evtEndDate', 7);
         setRecentDateRange('manualSyncStartDate', 'manualSyncEndDate', 7);
 
+        await loadRuntimeApiConfigs();
         loadData();
     });
     
@@ -3458,10 +3461,38 @@
         hideSyncProgressCard();
     }
 
+    function refreshRuntimeApiConfigMap(configs = []) {
+        const map = {};
+        (configs || []).forEach(config => {
+            if (!config || !config.config_key) return;
+            map[config.config_key] = config.config_value;
+        });
+        apiSourceConfigMap = map;
+
+        const rawThreshold = String(map.event_count_aggregate_threshold_per_day || '').trim();
+        const parsedThreshold = Number.parseFloat(rawThreshold);
+        aggregateEventCountThresholdPerDay = Number.isFinite(parsedThreshold) && parsedThreshold > 0
+            ? parsedThreshold
+            : 25;
+    }
+
+    async function loadRuntimeApiConfigs() {
+        try {
+            const response = await fetch('/api/api-config');
+            const data = await response.json();
+            refreshRuntimeApiConfigMap(data.configs || []);
+        } catch (error) {
+            console.error('加载运行时数据源配置失败:', error);
+            apiSourceConfigMap = {};
+            aggregateEventCountThresholdPerDay = 25;
+        }
+    }
+
     async function loadApiSourceConfigs() {
         try {
             const response = await fetch('/api/api-config');
             const data = await response.json();
+            refreshRuntimeApiConfigMap(data.configs || []);
             const tbody = document.getElementById('apiConfigBody');
             tbody.innerHTML = '';
             (data.configs || []).forEach(config => {
@@ -3499,6 +3530,7 @@
             if (!response.ok || !result.success) {
                 throw new Error(result.error || '保存失败');
             }
+            await loadRuntimeApiConfigs();
             showToast('配置保存成功');
             loadApiSourceConfigs();
         } catch (error) {
@@ -6482,7 +6514,7 @@
     // 重置单个权重
     function resetSingleWeight(key) {
         const defaults = {
-            event_count: { weight: 20, threshold_type: 'le', threshold_value: '25*period_days', score_direction: 'positive' },
+            event_count: { weight: 20, threshold_type: 'le', threshold_value: '1*period_days', score_direction: 'positive' },
             runbook: { weight: 10, threshold_type: 'ge', threshold_value: '75', score_direction: 'positive' },
             scene: { weight: 10, threshold_type: 'ge', threshold_value: '60', score_direction: 'positive' },
             invalid_rate: { weight: 20, threshold_type: 'le', threshold_value: '20', score_direction: 'negative' },
@@ -6547,7 +6579,7 @@
     async function resetScoreThresholdConfig() {
         if (confirm('确定要重置为默认配置吗？')) {
             const defaults = {
-                event_count: { name: '告警事件数', weight: 20, color: '#3b82f6', threshold_type: 'le', threshold_value: '25*period_days', score_direction: 'positive', description: '告警事件数小于等于 25 * 统计周期天数时达标' },
+                event_count: { name: '告警事件数', weight: 20, color: '#3b82f6', threshold_type: 'le', threshold_value: '1*period_days', score_direction: 'positive', description: '告警事件数小于等于 1 * 统计周期天数时达标（单规则口径）' },
                 runbook: { name: '手册填写', weight: 10, color: '#22c55e', threshold_type: 'ge', threshold_value: '75', score_direction: 'positive', description: '手册填写率大于等于75%时达标' },
                 scene: { name: '场景关联', weight: 10, color: '#f59e0b', threshold_type: 'ge', threshold_value: '60', score_direction: 'positive', description: '场景关联率大于等于60%时达标' },
                 invalid_rate: { name: '无效告警率', weight: 20, color: '#ef4444', threshold_type: 'le', threshold_value: '20', score_direction: 'negative', description: '无效告警率小于等于20%时达标' },
@@ -7275,6 +7307,14 @@
     }
 
     function evaluateDimensionPass(dimension, value, filters = null) {
+        if (dimension === 'event_count') {
+            const periodDays = getSelectedPeriodDays(filters);
+            const totalThreshold = Number(aggregateEventCountThresholdPerDay || 25) * Number(periodDays || 7);
+            const numericValue = Number(value);
+            if (!Number.isFinite(numericValue) || !Number.isFinite(totalThreshold)) return null;
+            return numericValue <= totalThreshold;
+        }
+
         const config = weightConfig?.[dimension] || defaultWeightConfig?.[dimension];
         if (!config) return null;
 

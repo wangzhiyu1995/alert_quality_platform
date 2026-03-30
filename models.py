@@ -638,7 +638,7 @@ class AlertRule(db.Model):
         total_incidents = len(incidents)
         
         threshold_defaults = {
-            'event_count': {'weight': 20, 'threshold_type': 'le', 'threshold_value': '25*period_days'},
+            'event_count': {'weight': 20, 'threshold_type': 'le', 'threshold_value': '1*period_days'},
             'runbook': {'weight': 10, 'threshold_type': 'ge', 'threshold_value': '75'},
             'scene': {'weight': 10, 'threshold_type': 'ge', 'threshold_value': '60'},
             'invalid_rate': {'weight': 20, 'threshold_type': 'le', 'threshold_value': '20'},

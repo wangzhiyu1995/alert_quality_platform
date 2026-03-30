@@ -10,8 +10,6 @@
 - 维度：`event_count`
 - 新默认阈值：`1 * period_days`
 - 判定：`规则在筛选周期内事件数 <= 1 * 周期天数` 才得该维度权重分。
-- 可选增强：支持“任一天事件数上限”校验（默认关闭）。
-  - 开启后需同时满足：`任一天事件数 <= 日上限（默认1）`
 - 生效范围：
   - 告警治理页「告警规则质量得分」列表中的事件数得分/背景色
   - 画像弹窗中的事件数得分与达标标签
@@ -36,18 +34,15 @@
 ### 5) 二次迁移（权重页拆分后）
 - 为兼容历史“单阈值混用”配置，新增迁移策略：
   - 若检测到 `event_count` 为 `N*period_days` 且 `N>1`，判定其更可能是历史聚合口径。
-  - 自动将 `N` 迁移到 `event_count_aggregate_threshold_per_day`（多规则/天）。
+  - 自动将 `N` 迁移到 `event_count_aggregate_threshold_per_day`（多规则阈值系数）。
   - 同时将单规则阈值重置为 `1*period_days`。
 - 目的：避免治理页单规则评分继续使用历史聚合阈值，导致达标口径偏宽。
 
 ### 6) 权重配置页面增强
 - 在“告警事件数”行新增双阈值输入：
   - `单规则`：沿用 `event_count.threshold_value`（例如 `1*period_days`）
-  - `多规则/天`：保存到 `event_count_aggregate_threshold_per_day`
-- 同行新增可选增强配置：
-  - `任一天上限` 开关：保存到 `event_count_rule_daily_strict`
-  - `日上限` 数值：保存到 `event_count_rule_daily_cap`
-- 保存配置时两者一起提交，确保治理页（单规则）与大盘（聚合）配置同页可管理。
+  - `多规则`：保存到 `event_count_aggregate_threshold_per_day`
+- UI仅展示单规则与多规则阈值系数，公式换算逻辑不在表格中展开。
 
 ## 影响文件
 - `/Users/Williwang/dev_project/flask_pj_duty_05_codex/app.py`

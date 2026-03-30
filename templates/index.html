@@ -2661,8 +2661,6 @@
     let configHistoryDetails = {};
     let apiSourceConfigMap = {};
     let aggregateEventCountThresholdPerDay = 25;
-    let ruleEventCountDailyStrictEnabled = false;
-    let ruleEventCountDailyCap = 1;
 
     function formatDateInputValue(dateObj) {
         return dateObj.toISOString().slice(0, 10);
@@ -3476,11 +3474,6 @@
         aggregateEventCountThresholdPerDay = Number.isFinite(parsedThreshold) && parsedThreshold > 0
             ? parsedThreshold
             : 25;
-
-        const strictText = String(map.event_count_rule_daily_strict || '').trim().toLowerCase();
-        ruleEventCountDailyStrictEnabled = ['1', 'true', 'yes', 'on'].includes(strictText);
-        const capNum = Number.parseInt(String(map.event_count_rule_daily_cap || '').trim(), 10);
-        ruleEventCountDailyCap = Number.isFinite(capNum) && capNum > 0 ? capNum : 1;
     }
 
     async function loadRuntimeApiConfigs() {
@@ -6265,13 +6258,6 @@
                     aggregateEventCountThresholdPerDay = aggregateNum;
                 }
             }
-            if (payload && payload.event_count_rule_daily_strict !== undefined) {
-                ruleEventCountDailyStrictEnabled = !!payload.event_count_rule_daily_strict;
-            }
-            if (payload && payload.event_count_rule_daily_cap !== undefined) {
-                const capNum = Number.parseInt(String(payload.event_count_rule_daily_cap), 10);
-                ruleEventCountDailyCap = Number.isFinite(capNum) && capNum > 0 ? capNum : 1;
-            }
             
             if (configs.length === 0) {
                 // 如果没有配置，使用默认配置
@@ -6337,29 +6323,23 @@
         Object.keys(weightConfig).forEach(key => {
             const item = weightConfig[key];
             const row = tbody.insertRow();
+            const singleRuleFactor = key === 'event_count' ? getPeriodThresholdMultiplier(item.threshold_value, 1) : null;
             const thresholdInputHtml = key === 'event_count'
                 ? `
                     <div style="display:flex;flex-direction:column;gap:6px;min-width:220px">
                         <div style="display:flex;align-items:center;gap:8px">
                             <span style="font-size:11px;color:var(--tx3);white-space:nowrap">单规则</span>
-                            <input type="text" class="form-input" value="${item.threshold_value}" style="width:120px;padding:4px 8px;font-size:12px;border-radius:4px;border:1px solid var(--sand2)" onchange="updateThresholdValue('${key}', this.value)">
+                            <input type="number" min="1" step="1" class="form-input" value="${Number(singleRuleFactor || 1)}" style="width:120px;padding:4px 8px;font-size:12px;border-radius:4px;border:1px solid var(--sand2)" onchange="updateSingleRuleEventCountFactor(this.value)">
                         </div>
                         <div style="display:flex;align-items:center;gap:8px">
-                            <span style="font-size:11px;color:var(--tx3);white-space:nowrap">多规则/天</span>
+                            <span style="font-size:11px;color:var(--tx3);white-space:nowrap">多规则</span>
                             <input type="number" min="1" step="1" class="form-input" value="${Number(aggregateEventCountThresholdPerDay || 25)}" style="width:120px;padding:4px 8px;font-size:12px;border-radius:4px;border:1px solid var(--sand2)" onchange="updateAggregateEventCountThresholdValue(this.value)">
-                        </div>
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--tx3);cursor:pointer">
-                                <input type="checkbox" ${ruleEventCountDailyStrictEnabled ? 'checked' : ''} onchange="updateRuleEventCountDailyStrict(this.checked)">
-                                任一天上限
-                            </label>
-                            <input type="number" min="1" step="1" class="form-input" value="${Number(ruleEventCountDailyCap || 1)}" style="width:86px;padding:4px 8px;font-size:12px;border-radius:4px;border:1px solid var(--sand2)" onchange="updateRuleEventCountDailyCap(this.value)">
                         </div>
                     </div>
                 `
                 : `<input type="text" class="form-input" value="${item.threshold_value}" style="width:80px;padding:4px 8px;font-size:12px;border-radius:4px;border:1px solid var(--sand2)" onchange="updateThresholdValue('${key}', this.value)">`;
             const descriptionText = key === 'event_count'
-                ? buildEventCountCriteriaDescription(item.threshold_value)
+                ? '按周期自动换算事件数阈值（单规则/多规则）'
                 : (item.description || '-');
             row.innerHTML = `
                 <td>
@@ -6421,22 +6401,31 @@
         aggregateEventCountThresholdPerDay = Number.isFinite(parsed) && parsed > 0 ? parsed : 25;
     }
 
-    function updateRuleEventCountDailyStrict(checked) {
-        ruleEventCountDailyStrictEnabled = !!checked;
+    function getPeriodThresholdMultiplier(rawValue, defaultValue = 1) {
+        const text = String(rawValue || '').trim();
+        if (!text) return defaultValue;
+        const compact = text.replace(/\s+/g, '').toLowerCase();
+        let factor = NaN;
+        if (compact.endsWith('*period_days')) {
+            factor = Number.parseFloat(compact.replace('*period_days', ''));
+        } else if (compact.startsWith('period_days*')) {
+            factor = Number.parseFloat(compact.replace('period_days*', ''));
+        } else if (compact.endsWith('xperiod_days')) {
+            factor = Number.parseFloat(compact.replace('xperiod_days', ''));
+        } else if (compact.startsWith('period_daysx')) {
+            factor = Number.parseFloat(compact.replace('period_daysx', ''));
+        } else {
+            factor = Number.parseFloat(compact);
+        }
+        return Number.isFinite(factor) && factor > 0 ? factor : defaultValue;
     }
 
-    function updateRuleEventCountDailyCap(value) {
+    function updateSingleRuleEventCountFactor(value) {
         const parsed = Number.parseInt(value, 10);
-        ruleEventCountDailyCap = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-    }
-
-    function buildEventCountCriteriaDescription(singleThreshold) {
-        const singleText = String(singleThreshold || '1*period_days').trim() || '1*period_days';
-        const aggK = Number(aggregateEventCountThresholdPerDay || 25);
-        const strictText = ruleEventCountDailyStrictEnabled
-            ? `；且任一天事件数 <= ${Number(ruleEventCountDailyCap || 1)}`
-            : '';
-        return `单规则：事件数 <= ${singleText}${strictText}。聚合：总事件数 <= ${aggK} * 统计天数 * 活跃规则数（活跃规则数=窗口内 distinct rule_id）。`;
+        const factor = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+        if (weightConfig.event_count) {
+            weightConfig.event_count.threshold_value = `${factor}*period_days`;
+        }
     }
 
     // 渲染权重饼图
@@ -6597,8 +6586,6 @@
             weightConfig[key].threshold_value = defaults[key].threshold_value;
             if (key === 'event_count') {
                 aggregateEventCountThresholdPerDay = 25;
-                ruleEventCountDailyStrictEnabled = false;
-                ruleEventCountDailyCap = 1;
             }
         }
         renderWeightTable();
@@ -6628,8 +6615,6 @@
                 body: JSON.stringify({
                     configs,
                     event_count_aggregate_threshold_per_day: Number(aggregateEventCountThresholdPerDay || 25),
-                    event_count_rule_daily_strict: !!ruleEventCountDailyStrictEnabled,
-                    event_count_rule_daily_cap: Number(ruleEventCountDailyCap || 1),
                     changed_by: 'admin'
                 })
             });
@@ -6641,13 +6626,6 @@
                     if (Number.isFinite(aggregateNum) && aggregateNum > 0) {
                         aggregateEventCountThresholdPerDay = aggregateNum;
                     }
-                }
-                if (result && result.event_count_rule_daily_strict !== undefined && result.event_count_rule_daily_strict !== null) {
-                    ruleEventCountDailyStrictEnabled = String(result.event_count_rule_daily_strict).trim().toLowerCase() === '1';
-                }
-                if (result && result.event_count_rule_daily_cap !== undefined && result.event_count_rule_daily_cap !== null) {
-                    const capNum = Number.parseInt(String(result.event_count_rule_daily_cap), 10);
-                    ruleEventCountDailyCap = Number.isFinite(capNum) && capNum > 0 ? capNum : 1;
                 }
                 // 同时保存到本地存储
                 localStorage.setItem('weightConfig', JSON.stringify(weightConfig));
@@ -6678,8 +6656,6 @@
             
             weightConfig = JSON.parse(JSON.stringify(defaults));
             aggregateEventCountThresholdPerDay = 25;
-            ruleEventCountDailyStrictEnabled = false;
-            ruleEventCountDailyCap = 1;
             localStorage.setItem('weightConfig', JSON.stringify(weightConfig));
             renderWeightTable();
             renderWeightPieChart();

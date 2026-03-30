@@ -266,7 +266,9 @@ def ensure_default_api_configs():
         'channel_ids': (json.dumps(DEFAULT_CHANNEL_IDS, ensure_ascii=False), '请求体channel_ids(JSON数组)'),
         'sync_days': ('7', '默认同步最近天数'),
         'limit': ('100', '分页条数（固定建议100）'),
-        'event_count_aggregate_threshold_per_day': ('25', '告警事件数聚合阈值（多规则口径，每天）')
+        'event_count_aggregate_threshold_per_day': ('25', '告警事件数聚合阈值（多规则口径，每天）'),
+        'event_count_rule_daily_strict': ('0', '单规则事件数是否启用按天上限校验(0关闭/1开启)'),
+        'event_count_rule_daily_cap': ('1', '单规则事件数按天上限（严格校验开启时生效）')
     }
 
     changed = False
@@ -2924,9 +2926,17 @@ def get_score_thresholds():
         aggregate_threshold_per_day = _safe_int(aggregate_cfg.config_value if aggregate_cfg else 25, 25)
         if aggregate_threshold_per_day < 1:
             aggregate_threshold_per_day = 25
+        rule_daily_strict_cfg = ApiConfig.query.filter_by(config_key='event_count_rule_daily_strict').first()
+        rule_daily_cap_cfg = ApiConfig.query.filter_by(config_key='event_count_rule_daily_cap').first()
+        rule_daily_strict = str(rule_daily_strict_cfg.config_value if rule_daily_strict_cfg else '0').strip().lower() in ['1', 'true', 'yes', 'on']
+        rule_daily_cap = _safe_int(rule_daily_cap_cfg.config_value if rule_daily_cap_cfg else 1, 1)
+        if rule_daily_cap < 1:
+            rule_daily_cap = 1
         return jsonify({
             'thresholds': [t.to_dict() for t in thresholds],
-            'event_count_aggregate_threshold_per_day': aggregate_threshold_per_day
+            'event_count_aggregate_threshold_per_day': aggregate_threshold_per_day,
+            'event_count_rule_daily_strict': rule_daily_strict,
+            'event_count_rule_daily_cap': rule_daily_cap
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -2994,6 +3004,8 @@ def update_score_thresholds_batch():
         configs = data.get('configs') or []
         changed_by = data.get('changed_by') or 'system'
         aggregate_threshold_per_day = data.get('event_count_aggregate_threshold_per_day')
+        rule_daily_strict = data.get('event_count_rule_daily_strict')
+        rule_daily_cap = data.get('event_count_rule_daily_cap')
 
         if not isinstance(configs, list) or not configs:
             return jsonify({'error': 'configs不能为空且必须为数组'}), 400
@@ -3055,8 +3067,10 @@ def update_score_thresholds_batch():
             db.session.add(history)
             updated.append(threshold.to_dict())
 
-        # 多规则阈值（每天）与权重配置一起保存，避免口径配置分散
+        # 事件数相关高级阈值与权重配置一起保存，避免口径配置分散
         aggregate_updated_value = None
+        rule_daily_strict_updated = None
+        rule_daily_cap_updated = None
         if aggregate_threshold_per_day is not None:
             ensure_default_api_configs()
             aggregate_num = max(1, _safe_int(aggregate_threshold_per_day, 25))
@@ -3077,13 +3091,55 @@ def update_score_thresholds_batch():
                 )
                 db.session.add(history)
 
+        if rule_daily_strict is not None:
+            ensure_default_api_configs()
+            strict_value = '1' if str(rule_daily_strict).strip().lower() in ['1', 'true', 'yes', 'on'] else '0'
+            strict_cfg = ApiConfig.query.filter_by(config_key='event_count_rule_daily_strict').first()
+            if strict_cfg:
+                old_value = strict_cfg.config_value
+                strict_cfg.config_value = strict_value
+                db.session.add(strict_cfg)
+                db.session.flush()
+                rule_daily_strict_updated = strict_cfg.config_value
+                history = ConfigHistory(
+                    config_type='api_config',
+                    config_id=strict_cfg.id,
+                    action='update',
+                    old_value=json.dumps({'config_key': strict_cfg.config_key, 'config_value': old_value}, ensure_ascii=False),
+                    new_value=json.dumps({'config_key': strict_cfg.config_key, 'config_value': strict_cfg.config_value}, ensure_ascii=False),
+                    changed_by=changed_by
+                )
+                db.session.add(history)
+
+        if rule_daily_cap is not None:
+            ensure_default_api_configs()
+            cap_value = str(max(1, _safe_int(rule_daily_cap, 1)))
+            cap_cfg = ApiConfig.query.filter_by(config_key='event_count_rule_daily_cap').first()
+            if cap_cfg:
+                old_value = cap_cfg.config_value
+                cap_cfg.config_value = cap_value
+                db.session.add(cap_cfg)
+                db.session.flush()
+                rule_daily_cap_updated = cap_cfg.config_value
+                history = ConfigHistory(
+                    config_type='api_config',
+                    config_id=cap_cfg.id,
+                    action='update',
+                    old_value=json.dumps({'config_key': cap_cfg.config_key, 'config_value': old_value}, ensure_ascii=False),
+                    new_value=json.dumps({'config_key': cap_cfg.config_key, 'config_value': cap_cfg.config_value}, ensure_ascii=False),
+                    changed_by=changed_by
+                )
+                db.session.add(history)
+
         db.session.commit()
 
         return jsonify({
             'success': True,
             'updated_count': len(updated),
             'thresholds': updated,
-            'event_count_aggregate_threshold_per_day': aggregate_updated_value
+            'event_count_aggregate_threshold_per_day': aggregate_updated_value,
+            'event_count_rule_daily_strict': rule_daily_strict_updated,
+            'event_count_rule_daily_cap': rule_daily_cap_updated
         }), 200
     except Exception as e:
         db.session.rollback()
@@ -3130,6 +3186,11 @@ def update_api_config(config_id):
             elif config.config_key == 'event_count_aggregate_threshold_per_day':
                 threshold_num = max(1, _safe_int(new_value, 25))
                 new_value = str(threshold_num)
+            elif config.config_key == 'event_count_rule_daily_strict':
+                new_value = '1' if str(new_value).strip().lower() in ['1', 'true', 'yes', 'on'] else '0'
+            elif config.config_key == 'event_count_rule_daily_cap':
+                cap_num = max(1, _safe_int(new_value, 1))
+                new_value = str(cap_num)
             elif config.config_key == 'api_url' and not new_value:
                 return jsonify({'error': 'api_url不能为空'}), 400
 

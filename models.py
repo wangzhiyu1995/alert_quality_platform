@@ -661,6 +661,21 @@ class AlertRule(db.Model):
             # 配置读取失败时降级为默认阈值，避免中断评分流程
             pass
 
+        # 单规则事件数可选“按天上限”增强校验
+        event_count_daily_strict = False
+        event_count_daily_cap = 1
+        try:
+            strict_cfg = ApiConfig.query.filter_by(config_key='event_count_rule_daily_strict').first()
+            cap_cfg = ApiConfig.query.filter_by(config_key='event_count_rule_daily_cap').first()
+            event_count_daily_strict = str(strict_cfg.config_value if strict_cfg else '0').strip().lower() in ['1', 'true', 'yes', 'on']
+            try:
+                event_count_daily_cap = max(1, int(cap_cfg.config_value if cap_cfg else 1))
+            except (TypeError, ValueError):
+                event_count_daily_cap = 1
+        except Exception:
+            event_count_daily_strict = False
+            event_count_daily_cap = 1
+
         def _to_float(value, default_value=0.0):
             try:
                 return float(value)
@@ -815,7 +830,23 @@ class AlertRule(db.Model):
         jitter_rate = (jitter_count / total_incidents * 100) if total_incidents > 0 else 0
 
         # 统一按阈值配置计算各维度得分
-        event_count_score = threshold_defaults['event_count']['weight'] if _passes_threshold('event_count', total_incidents) else 0
+        event_count_pass = _passes_threshold('event_count', total_incidents)
+        if event_count_pass and event_count_daily_strict and total_incidents > 0:
+            daily_count = {}
+            for inc in incidents:
+                try:
+                    ts = int(getattr(inc, 'created_at', 0) or 0)
+                except (TypeError, ValueError):
+                    continue
+                if ts <= 0:
+                    continue
+                day_key = datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
+                daily_count[day_key] = daily_count.get(day_key, 0) + 1
+                if daily_count[day_key] > event_count_daily_cap:
+                    event_count_pass = False
+                    break
+
+        event_count_score = threshold_defaults['event_count']['weight'] if event_count_pass else 0
         runbook_threshold_type = (threshold_defaults['runbook'].get('threshold_type') or '').strip().lower()
         scene_threshold_type = (threshold_defaults['scene'].get('threshold_type') or '').strip().lower()
         runbook_metric = rule.rule_note if runbook_threshold_type == 'bool' else (100 if _is_not_empty(rule.rule_note) else 0)

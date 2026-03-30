@@ -535,6 +535,45 @@ def ensure_default_score_thresholds():
             threshold.description = item['description']
             changed = True
 
+    # 事件数阈值拆分迁移：
+    # 历史版本只有一个event_count阈值，很多场景会配置为 N*period_days（实为聚合口径）。
+    # 迁移策略：当检测到N>1时，将N迁移到“多规则/天阈值”，并将单规则阈值恢复为1*period_days。
+    try:
+        ensure_default_api_configs()
+        event_threshold = ScoreThresholdConfig.query.filter_by(dimension_key='event_count').first()
+        aggregate_cfg = ApiConfig.query.filter_by(config_key='event_count_aggregate_threshold_per_day').first()
+        if event_threshold and aggregate_cfg:
+            current_type = (event_threshold.threshold_type or '').strip().lower()
+            current_value = str(event_threshold.threshold_value or '').strip()
+            compact = current_value.replace(' ', '').lower()
+
+            def _extract_period_multiplier(compact_text):
+                try:
+                    if compact_text.endswith('*period_days'):
+                        return float(compact_text[:-len('*period_days')])
+                    if compact_text.startswith('period_days*'):
+                        return float(compact_text[len('period_days*'):])
+                    if compact_text.endswith('xperiod_days'):
+                        return float(compact_text[:-len('xperiod_days')])
+                    if compact_text.startswith('period_daysx'):
+                        return float(compact_text[len('period_daysx'):])
+                except Exception:
+                    return None
+                return None
+
+            multiplier = _extract_period_multiplier(compact)
+            if current_type in ['le', 'lt'] and multiplier and multiplier > 1:
+                current_aggregate = _safe_int(aggregate_cfg.config_value, 25)
+                if current_aggregate <= 0 or current_aggregate == 25:
+                    aggregate_cfg.config_value = str(int(multiplier) if float(multiplier).is_integer() else multiplier)
+                    changed = True
+                event_threshold.threshold_type = 'le'
+                event_threshold.threshold_value = '1*period_days'
+                event_threshold.description = '告警事件数小于等于 1 * 统计周期天数时达标（单规则口径）'
+                changed = True
+    except Exception:
+        pass
+
     if changed:
         db.session.commit()
 
@@ -2879,8 +2918,16 @@ def get_score_thresholds():
     """
     try:
         ensure_default_score_thresholds()
+        ensure_default_api_configs()
         thresholds = ScoreThresholdConfig.query.all()
-        return jsonify({'thresholds': [t.to_dict() for t in thresholds]}), 200
+        aggregate_cfg = ApiConfig.query.filter_by(config_key='event_count_aggregate_threshold_per_day').first()
+        aggregate_threshold_per_day = _safe_int(aggregate_cfg.config_value if aggregate_cfg else 25, 25)
+        if aggregate_threshold_per_day < 1:
+            aggregate_threshold_per_day = 25
+        return jsonify({
+            'thresholds': [t.to_dict() for t in thresholds],
+            'event_count_aggregate_threshold_per_day': aggregate_threshold_per_day
+        }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2946,6 +2993,7 @@ def update_score_thresholds_batch():
         data = request.get_json() or {}
         configs = data.get('configs') or []
         changed_by = data.get('changed_by') or 'system'
+        aggregate_threshold_per_day = data.get('event_count_aggregate_threshold_per_day')
 
         if not isinstance(configs, list) or not configs:
             return jsonify({'error': 'configs不能为空且必须为数组'}), 400
@@ -3007,12 +3055,35 @@ def update_score_thresholds_batch():
             db.session.add(history)
             updated.append(threshold.to_dict())
 
+        # 多规则阈值（每天）与权重配置一起保存，避免口径配置分散
+        aggregate_updated_value = None
+        if aggregate_threshold_per_day is not None:
+            ensure_default_api_configs()
+            aggregate_num = max(1, _safe_int(aggregate_threshold_per_day, 25))
+            aggregate_cfg = ApiConfig.query.filter_by(config_key='event_count_aggregate_threshold_per_day').first()
+            if aggregate_cfg:
+                old_value = aggregate_cfg.config_value
+                aggregate_cfg.config_value = str(aggregate_num)
+                db.session.add(aggregate_cfg)
+                db.session.flush()
+                aggregate_updated_value = aggregate_cfg.config_value
+                history = ConfigHistory(
+                    config_type='api_config',
+                    config_id=aggregate_cfg.id,
+                    action='update',
+                    old_value=json.dumps({'config_key': aggregate_cfg.config_key, 'config_value': old_value}, ensure_ascii=False),
+                    new_value=json.dumps({'config_key': aggregate_cfg.config_key, 'config_value': aggregate_cfg.config_value}, ensure_ascii=False),
+                    changed_by=changed_by
+                )
+                db.session.add(history)
+
         db.session.commit()
 
         return jsonify({
             'success': True,
             'updated_count': len(updated),
-            'thresholds': updated
+            'thresholds': updated,
+            'event_count_aggregate_threshold_per_day': aggregate_updated_value
         }), 200
     except Exception as e:
         db.session.rollback()

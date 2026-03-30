@@ -30,6 +30,19 @@
 - 若仍是历史默认值（`25*period_days` 等等价写法），自动迁移为新默认 `1*period_days`。
 - 自定义阈值不做覆盖。
 
+### 5) 二次迁移（权重页拆分后）
+- 为兼容历史“单阈值混用”配置，新增迁移策略：
+  - 若检测到 `event_count` 为 `N*period_days` 且 `N>1`，判定其更可能是历史聚合口径。
+  - 自动将 `N` 迁移到 `event_count_aggregate_threshold_per_day`（多规则/天）。
+  - 同时将单规则阈值重置为 `1*period_days`。
+- 目的：避免治理页单规则评分继续使用历史聚合阈值，导致达标口径偏宽。
+
+### 6) 权重配置页面增强
+- 在“告警事件数”行新增双阈值输入：
+  - `单规则`：沿用 `event_count.threshold_value`（例如 `1*period_days`）
+  - `多规则/天`：保存到 `event_count_aggregate_threshold_per_day`
+- 保存配置时两者一起提交，确保治理页（单规则）与大盘（聚合）配置同页可管理。
+
 ## 影响文件
 - `/Users/Williwang/dev_project/flask_pj_duty_05_codex/app.py`
 - `/Users/Williwang/dev_project/flask_pj_duty_05_codex/models.py`

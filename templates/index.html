@@ -6252,6 +6252,12 @@
             const configs = Array.isArray(payload?.thresholds)
                 ? payload.thresholds
                 : (Array.isArray(payload) ? payload : []);
+            if (payload && payload.event_count_aggregate_threshold_per_day !== undefined) {
+                const aggregateNum = Number.parseFloat(payload.event_count_aggregate_threshold_per_day);
+                if (Number.isFinite(aggregateNum) && aggregateNum > 0) {
+                    aggregateEventCountThresholdPerDay = aggregateNum;
+                }
+            }
             
             if (configs.length === 0) {
                 // 如果没有配置，使用默认配置
@@ -6317,6 +6323,20 @@
         Object.keys(weightConfig).forEach(key => {
             const item = weightConfig[key];
             const row = tbody.insertRow();
+            const thresholdInputHtml = key === 'event_count'
+                ? `
+                    <div style="display:flex;flex-direction:column;gap:6px;min-width:220px">
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span style="font-size:11px;color:var(--tx3);white-space:nowrap">单规则</span>
+                            <input type="text" class="form-input" value="${item.threshold_value}" style="width:120px;padding:4px 8px;font-size:12px;border-radius:4px;border:1px solid var(--sand2)" onchange="updateThresholdValue('${key}', this.value)">
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span style="font-size:11px;color:var(--tx3);white-space:nowrap">多规则/天</span>
+                            <input type="number" min="1" step="1" class="form-input" value="${Number(aggregateEventCountThresholdPerDay || 25)}" style="width:120px;padding:4px 8px;font-size:12px;border-radius:4px;border:1px solid var(--sand2)" onchange="updateAggregateEventCountThresholdValue(this.value)">
+                        </div>
+                    </div>
+                `
+                : `<input type="text" class="form-input" value="${item.threshold_value}" style="width:80px;padding:4px 8px;font-size:12px;border-radius:4px;border:1px solid var(--sand2)" onchange="updateThresholdValue('${key}', this.value)">`;
             row.innerHTML = `
                 <td>
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -6338,7 +6358,7 @@
                     </select>
                 </td>
                 <td>
-                    <input type="text" class="form-input" value="${item.threshold_value}" style="width:80px;padding:4px 8px;font-size:12px;border-radius:4px;border:1px solid var(--sand2)" onchange="updateThresholdValue('${key}', this.value)">
+                    ${thresholdInputHtml}
                 </td>
                 <td style="font-size:11px;color:var(--tx3);max-width:200px">
                     ${item.description || '-'}
@@ -6370,6 +6390,11 @@
     // 更新阈值
     function updateThresholdValue(key, value) {
         weightConfig[key].threshold_value = value;
+    }
+
+    function updateAggregateEventCountThresholdValue(value) {
+        const parsed = Number.parseInt(value, 10);
+        aggregateEventCountThresholdPerDay = Number.isFinite(parsed) && parsed > 0 ? parsed : 25;
     }
 
     // 渲染权重饼图
@@ -6528,6 +6553,9 @@
             weightConfig[key].weight = defaults[key].weight;
             weightConfig[key].threshold_type = defaults[key].threshold_type;
             weightConfig[key].threshold_value = defaults[key].threshold_value;
+            if (key === 'event_count') {
+                aggregateEventCountThresholdPerDay = 25;
+            }
         }
         renderWeightTable();
         renderWeightPieChart();
@@ -6553,20 +6581,26 @@
             const response = await fetch('/api/score-thresholds/batch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ configs, changed_by: 'admin' })
+                body: JSON.stringify({
+                    configs,
+                    event_count_aggregate_threshold_per_day: Number(aggregateEventCountThresholdPerDay || 25),
+                    changed_by: 'admin'
+                })
             });
-            
+
+            const result = await response.json().catch(() => null);
             if (response.ok) {
+                if (result && result.event_count_aggregate_threshold_per_day !== undefined && result.event_count_aggregate_threshold_per_day !== null) {
+                    const aggregateNum = Number.parseFloat(result.event_count_aggregate_threshold_per_day);
+                    if (Number.isFinite(aggregateNum) && aggregateNum > 0) {
+                        aggregateEventCountThresholdPerDay = aggregateNum;
+                    }
+                }
                 // 同时保存到本地存储
                 localStorage.setItem('weightConfig', JSON.stringify(weightConfig));
                 showToast('配置保存成功');
             } else {
-                const raw = await response.text();
-                let errMsg = raw || `HTTP ${response.status}`;
-                try {
-                    const parsed = JSON.parse(raw);
-                    errMsg = parsed.error || parsed.message || errMsg;
-                } catch (e) {}
+                const errMsg = result?.error || result?.message || `HTTP ${response.status}`;
                 showToast('保存失败: ' + errMsg, 'error');
             }
         } catch (error) {
@@ -6590,6 +6624,7 @@
             };
             
             weightConfig = JSON.parse(JSON.stringify(defaults));
+            aggregateEventCountThresholdPerDay = 25;
             localStorage.setItem('weightConfig', JSON.stringify(weightConfig));
             renderWeightTable();
             renderWeightPieChart();
